@@ -15,6 +15,15 @@ def getIban():
 def getDownloadDir():
     return _get("paths", "downloads")
 
+def getTmpDir():
+    return _get("paths", "tmp")
+
+def getZoomaliaLogin():
+    return _get("zoomalia", "login")
+
+def getZoomaliaPwd():
+    return _get("zoomalia", "password")
+
 def _get(generalKey, key):
     f = open("confidential.json", 'r')
     credential = json.load(f)

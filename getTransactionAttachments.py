@@ -2,11 +2,11 @@ import datetime
 import shutil
 import os
 import json
-from pathlib import Path
-from googleQonto import getLastStatement
 import qonto
 import sys
 import extInfoAccess
+from pathlib import Path
+from googleQonto import getLastStatement
 
 def getLastMonthDate():
     # my_string = "2023-01-10"
@@ -51,7 +51,6 @@ def main(argv):
         lastMonth = datetime.date.today()
         dirName = lastMonth.strftime("%Y_%m")
         buildQonto(dirName, lastMonth).addMissingAttachment()
-
     else:
         print('============ LAUNCH the COMPLET generation ==============')
         lastMonth = getLastMonthDate()
@@ -77,11 +76,9 @@ def main(argv):
 
         # TODO send zip file by mail to ANC2
         # TODO get facture Free directly from Free API (remove Cozy usage)
-        # TODO remove security information from the code to move into file
-        # TODO try to use scrapping to get releve de compte from qonto in place of onpening webpage
-        # TODO add to a git repo
-        # TODO can update on use defined month
-        # TODO Oauth sur compte Qonto
+        # TODO try to use scrapping to get releve de compte from qonto in place of opening webpage
+        # TODO can update on user defined mounth
+        # TODO Oauth sur compte Qonto => Impossible because needs to register the application to Qonto
         # TODO recherche des transactions qonto avec un filtre sur les dates
 
 

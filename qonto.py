@@ -6,9 +6,10 @@ from pathlib import Path
 from googleGoogleWorkspace import getBillFromMail
 import shutil
 import extInfoAccess
+from scapp_zoomalia import run_zoomalia
 
 class Qonto:
-    listManageable = ["Free Telecom", "Google Cloud France SARL"]
+    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia"]
     baseUrl = ""
     genericHeaders = {
         "Authorization": "",
@@ -34,7 +35,8 @@ class Qonto:
         print("List of transactions:")
         if transactions:
             for transaction in transactions:
-                if transaction["amount"] != 0:
+                amount = transaction["amount"]
+                if amount != 0:
                     label = transaction["label"]
                     ref = transaction["reference"]
                     date = transaction["emitted_at"]
@@ -90,24 +92,33 @@ class Qonto:
 
         if transactions:
             for transaction in transactions:
-                label = transaction["label"]
-                transactionId = transaction["id"]
-                if not transaction["attachment_ids"] and label in Qonto.listManageable:
-                    print("Not transaction found on Qonto for:", label)
-                    if label == "Free Telecom":
-                        attachmentPath, fileName = self.getFreeBill()
-                        deleteFileAtEnd = False
+                amount = transaction["amount"]
+                if amount > 0.06:
+                    label = transaction["label"]
+                    transactionId = transaction["id"]
+                    date = transaction["emitted_at"]
+                    if not transaction["attachment_ids"] and label in Qonto.listManageable:
+                        print("Not transaction found on Qonto for:", label)
+                        if label == "Free Telecom":
+                            attachmentPath, fileName = self.getFreeInvoice()
+                            deleteFileAtEnd = False
 
-                    if label == "Google Cloud France SARL":
-                        attachmentPath, fileName = self.getGoogleWorkspaceBill()
-                        deleteFileAtEnd = True
-                        
-                    if attachmentPath and fileName:
-                        self.addAttachment(transactionId, attachmentPath[0], fileName, label)
-                        if deleteFileAtEnd == True:
-                            shutil.rmtree(os.path.dirname(attachmentPath[0]))
-                    else:
-                        print("ERROR: Don't fine the bill for:", attachmentPath, fileName)
+                        if label == "Google Cloud France SARL":
+                            attachmentPath, fileName = self.getGoogleWorkspaceInvoice()
+                            deleteFileAtEnd = True
+
+                        if label == "Zoomalia":
+                            attachmentPath, fileName = self.getZoomaliaInvoice(amount, date)
+                            deleteFileAtEnd = True
+                            
+                        if attachmentPath and fileName:
+                            self.addAttachment(transactionId, attachmentPath[0], fileName, label)
+                            if deleteFileAtEnd == True:
+                                shutil.rmtree(os.path.dirname(attachmentPath[0]))
+                        else:
+                            print("ERROR: Don't fine the bill for:", attachmentPath, fileName)
+                    elif not transaction["attachment_ids"]:
+                        print("Not transaction found on Qonto for:", label, date, amount, " => need to be added manually")
 
     def addAttachment(self, transactionId, filePath, fileName, label):
         url = Qonto.baseUrl + 'transactions/' + transactionId + '/attachments/'
@@ -158,7 +169,7 @@ class Qonto:
         open(writeDir + "/" + name, "wb").write(file.content)
 
 
-    def getFreeBill(self):
+    def getFreeInvoice(self):
         path = Path('C:/Users/compu/Cozy Drive/Administratif/Free/fbx24442322')
         fileName = f'{Qonto.requestedDate.strftime("%Y%m")}_free.pdf'
         if path and fileName:
@@ -168,9 +179,17 @@ class Qonto:
         
         return attachmentPath, fileName
 
-    def getGoogleWorkspaceBill(self):
+    def getGoogleWorkspaceInvoice(self):
         mailPath = Path(getBillFromMail("payments-noreply@google.com", "Google Workspace : votre facture pour adn-dev.fr est disponible"))
         attachmentPath = list(mailPath.glob("*.pdf"))
+        fileName = os.path.basename(attachmentPath[0])
+
+        return attachmentPath, fileName
+
+    def getZoomaliaInvoice(self, amount, invoiceDate):
+        invoicePath = run_zoomalia(amount, invoiceDate, extInfoAccess.getZoomaliaLogin(), extInfoAccess.getZoomaliaPwd(), extInfoAccess.getTmpDir())
+
+        attachmentPath = [invoicePath]
         fileName = os.path.basename(attachmentPath[0])
 
         return attachmentPath, fileName
