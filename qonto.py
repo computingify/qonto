@@ -3,13 +3,13 @@ import copy
 import requests
 import datetime
 from pathlib import Path
-from googleGoogleWorkspace import getBillFromMail
+import googleInvoiceInMail
 import shutil
 import extInfoAccess
 from scapp_zoomalia import run_zoomalia
 
 class Qonto:
-    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia"]
+    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "CDVI-HI"]
     baseUrl = ""
     genericHeaders = {
         "Authorization": "",
@@ -107,6 +107,10 @@ class Qonto:
                             attachmentPath, fileName = self.getGoogleWorkspaceInvoice()
                             deleteFileAtEnd = True
 
+                        if label == "CDVI-HI":
+                            attachmentPath, fileName = self.getCdviInvoice()
+                            deleteFileAtEnd = True
+
                         if label == "Zoomalia":
                             attachmentPath, fileName = self.getZoomaliaInvoice(amount, date)
                             deleteFileAtEnd = True
@@ -180,8 +184,15 @@ class Qonto:
         return attachmentPath, fileName
 
     def getGoogleWorkspaceInvoice(self):
-        mailPath = Path(getBillFromMail("payments-noreply@google.com", "Google Workspace : votre facture pour adn-dev.fr est disponible"))
+        mailPath = Path(googleInvoiceInMail.get("payments-noreply@google.com", "Google Workspace : votre facture pour adn-dev.fr est disponible"))
         attachmentPath = list(mailPath.glob("*.pdf"))
+        fileName = os.path.basename(attachmentPath[0])
+
+        return attachmentPath, fileName
+
+    def getCdviInvoice(self):
+        mailPath = Path(googleInvoiceInMail.get("*@stripe.com", "Votre reçu nº*"))
+        attachmentPath = list(mailPath.glob("Invoice*.pdf"))
         fileName = os.path.basename(attachmentPath[0])
 
         return attachmentPath, fileName
