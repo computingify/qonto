@@ -4,6 +4,7 @@ import datetime
 from bs4 import BeautifulSoup
 from xml.etree import ElementTree as ET
 from weasyprint import HTML  # to install: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#windows
+import re
 
 LOGIN_URL = ('https://www.zoomalia.com/login/')
 URL = ('https://www.zoomalia.com/mesachats/voirfacture')
@@ -30,7 +31,7 @@ def run_zoomalia(invoce_amount, transaction_date, login, pwd, tmp_dir):
     with requests.session() as s:
         # Perform login
         s.post(LOGIN_URL, data=payload)
-
+        
         # Get bill page
         result = s.get(URL)
         soup = BeautifulSoup(result.content, 'html.parser')
@@ -55,11 +56,15 @@ def run_zoomalia(invoce_amount, transaction_date, login, pwd, tmp_dir):
             for css_link in css_links:
                 css_link['href'] = css_file_name
 
+            # Replace all "chat" occurances by "chien"
+            search_and_replace(soup_invoice, 'chat ', 'chien ')
+            search_and_replace(soup_invoice, ' chat', ' chien')
+
             # generate the pdf
             pdf_path = f'{tmp_dir}/invoiceZoomalia_{str(int(invoce_amount))}euro_{date_object.strftime("%Y%m")}.pdf'
             open(pdf_path, 'wb').write(makepdf(soup_invoice.encode('utf-8')))
 
-    return pdf_path
+            return pdf_path
 
 def extract_html_info(soup, expected_amount, expected_date):
     # Search for bill in the html content
@@ -90,6 +95,12 @@ def extract_html_info(soup, expected_amount, expected_date):
             href = order.find("a", {"class": "divider order-invoice"}, href=True)['href']
             return href
 
+def search_and_replace(soup_object, searched, replace):
+    findcat = soup_object.find_all(text = re.compile(searched)) #, re.IGNORECASE
+    for cat in findcat:
+        fixed_text = cat.replace(searched, replace)
+        cat.replace_with(fixed_text)
+
 if __name__ == '__main__':
     # with open('scapping/r.html') as f:
     #     # print(f.read().encode('utf-8'))
@@ -98,5 +109,5 @@ if __name__ == '__main__':
     # href = extract_html_info(soup, 216.96, '2022-11-02')
     # print('link =', href)
 
-
-    run_zoomalia(216.96, '2022-11-02')
+    today = datetime.date.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    run_zoomalia(248.93, today, "tmp")
