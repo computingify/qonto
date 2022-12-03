@@ -58,4 +58,3 @@ def getLastStatement():
 
 if __name__ == "__main__":
     getLastStatement()
-# [END gmail_quickstart]

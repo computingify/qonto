@@ -9,7 +9,7 @@ import extInfoAccess
 from scapp_zoomalia import run_zoomalia
 
 class Qonto:
-    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "CDVI-HI"]
+    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "CDVI-HI", "ToolStation"]
     baseUrl = ""
     genericHeaders = {
         "Authorization": "",
@@ -100,27 +100,32 @@ class Qonto:
                     if not transaction["attachment_ids"] and label in Qonto.listManageable:
                         print("Not transaction found on Qonto for:", label)
                         if label == "Free Telecom":
-                            attachmentPath, fileName = self.getFreeInvoice()
+                            attachmentPaths, fileNames = self.getFreeInvoice()
                             deleteFileAtEnd = False
 
                         if label == "Google Cloud France SARL":
-                            attachmentPath, fileName = self.getGoogleWorkspaceInvoice()
+                            attachmentPaths, fileNames = self.getGoogleWorkspaceInvoice()
                             deleteFileAtEnd = True
 
                         if label == "CDVI-HI":
-                            attachmentPath, fileName = self.getCdviInvoice()
+                            attachmentPaths, fileNames = self.getCdviInvoice()
                             deleteFileAtEnd = True
 
                         if label == "Zoomalia":
-                            attachmentPath, fileName = self.getZoomaliaInvoice(amount, date)
+                            attachmentPaths, fileNames = self.getZoomaliaInvoice(amount, date)
+                            deleteFileAtEnd = True
+
+                        if label == "ToolStation":
+                            attachmentPaths, fileNames = self.getToolStationInvoice(amount, date)
                             deleteFileAtEnd = True
                             
-                        if attachmentPath and fileName:
-                            self.addAttachment(transactionId, attachmentPath[0], fileName, label)
-                            if deleteFileAtEnd == True:
-                                shutil.rmtree(os.path.dirname(attachmentPath[0]))
+                        if attachmentPaths and fileNames:
+                            for attachment, fileName in zip(attachmentPaths, fileNames):
+                                self.addAttachment(transactionId, attachment, fileName, label)
+                                if deleteFileAtEnd == True:
+                                    shutil.rmtree(os.path.dirname(attachment))
                         else:
-                            print("ERROR: Don't fine the bill for:", attachmentPath, fileName)
+                            print("ERROR: Don't fine the bill for:", attachmentPaths, fileNames)
                     elif not transaction["attachment_ids"]:
                         print("Not transaction found on Qonto for:", label, date, amount, " => need to be added manually")
 
@@ -194,6 +199,15 @@ class Qonto:
         mailPath = Path(googleInvoiceInMail.get("*@stripe.com", "Votre reçu nº*"))
         attachmentPath = list(mailPath.glob("Invoice*.pdf"))
         fileName = os.path.basename(attachmentPath[0])
+
+        return attachmentPath, fileName
+
+    def getToolStationInvoice(self):
+        mailPath = Path(googleInvoiceInMail.get("info@toolstation.fr", "Commande Toolstation *"))
+        attachmentPath = list(mailPath.glob("QAF*.pdf"))
+
+        for attachment in attachmentPath:
+            fileName.append = os.path.basename(attachment)
 
         return attachmentPath, fileName
 
