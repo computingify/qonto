@@ -59,7 +59,10 @@ def main(argv):
             ">>>>> Will get all transactions attachments for", lastMonth.strftime("%Y_%m")
         )
         dirName = lastMonth.strftime("%Y_%m")
-        getLastStatement()
+        isError = getLastStatement()
+        if isError == True:
+            return 1
+
         manageStatement(dirName, lastMonth)
 
         buildQonto(dirName, lastMonth).run()

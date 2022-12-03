@@ -45,6 +45,11 @@ def getLastStatement():
             webbrowser.open(statementUrl)
 
             input("Press Enter when statement downloaded")
+
+            return False
+        else:
+            print("No statement found, Exit")
+            return True
         
 
     except HttpError as error:
