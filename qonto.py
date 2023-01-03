@@ -42,6 +42,9 @@ class Qonto:
                     date = transaction["emitted_at"]
                     transactionId = transaction["id"]
 
+                    # Remove / from ref
+                    ref = str(ref).replace('/', '_')
+
                     transactionDate = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%fZ")
                     if (
                         transactionDate.year == self.requestedDate.year
@@ -213,6 +216,14 @@ class Qonto:
 
     def getZoomaliaInvoice(self, amount, invoiceDate):
         invoicePath = run_zoomalia(amount, invoiceDate, extInfoAccess.getZoomaliaLogin(), extInfoAccess.getZoomaliaPwd(), extInfoAccess.getTmpDir())
+
+        attachmentPath = [invoicePath]
+        fileName = os.path.basename(attachmentPath[0])
+
+        return attachmentPath, fileName
+
+    def getAmazonInvoice(self, amount, invoiceDate):
+        invoicePath = run_amazon(amount, invoiceDate, extInfoAccess.getAmazonLogin(), extInfoAccess.getAmazonPwd(), extInfoAccess.getTmpDir())
 
         attachmentPath = [invoicePath]
         fileName = os.path.basename(attachmentPath[0])

@@ -59,6 +59,16 @@ def run_zoomalia(invoce_amount, transaction_date, login, pwd, tmp_dir):
             # Replace all "chat" occurances by "chien"
             search_and_replace(soup_invoice, 'chat ', 'chien ')
             search_and_replace(soup_invoice, ' chat', ' chien')
+            search_and_replace(soup_invoice, 'Chat ', 'Chien ')
+            search_and_replace(soup_invoice, ' Chat', ' Chien')
+            search_and_replace(soup_invoice, 'oiseau ', 'chien ')
+            search_and_replace(soup_invoice, ' oiseau', ' chien')
+            search_and_replace(soup_invoice, 'Oiseau ', 'Chien ')
+            search_and_replace(soup_invoice, ' Oiseau', ' Chien')
+            search_and_replace(soup_invoice, 'oiseaux ', 'chien ')
+            search_and_replace(soup_invoice, ' oiseaux', ' chien')
+            search_and_replace(soup_invoice, 'Oiseaux ', 'Chien ')
+            search_and_replace(soup_invoice, ' Oiseaux', ' Chien')
 
             # generate the pdf
             pdf_path = f'{tmp_dir}/invoiceZoomalia_{str(int(invoce_amount))}euro_{date_object.strftime("%Y%m")}.pdf'
