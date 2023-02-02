@@ -1,11 +1,12 @@
 import os
 import time
+import pathlib
 
 def process(path):
     
     # Extracting all the contents in the directory corresponding to path
     l_files = os.listdir(path)
-    
+    l_files.reverse()
     # Iterating over all the files
     for file in l_files:
     
@@ -13,7 +14,7 @@ def process(path):
         file_path = f'{path}\\{file}'
     
         # Checking whether the given file is a directory or not
-        if os.path.isfile(file_path):
+        if os.path.isfile(file_path) and '.pdf' == pathlib.Path(file_path).suffix:
             try:
                 # Printing the file pertaining to file_path
                 os.startfile(file_path, 'print')

@@ -9,7 +9,7 @@ import extInfoAccess
 from scapp_zoomalia import run_zoomalia
 
 class Qonto:
-    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "CDVI-HI", "ToolStation"]
+    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "ZOOMALIA.COM", "CDVI-HI", "ToolStation"]
     baseUrl = ""
     genericHeaders = {
         "Authorization": "",
@@ -39,7 +39,7 @@ class Qonto:
                 if amount != 0:
                     label = transaction["label"]
                     ref = transaction["reference"]
-                    date = transaction["emitted_at"]
+                    date = transaction["settled_at"]
                     transactionId = transaction["id"]
 
                     # Remove / from ref
@@ -114,7 +114,7 @@ class Qonto:
                             attachmentPaths, fileNames = self.getCdviInvoice()
                             deleteFileAtEnd = True
 
-                        if label == "Zoomalia":
+                        if label == "Zoomalia" or label == "ZOOMALIA.COM":
                             attachmentPaths, fileNames = self.getZoomaliaInvoice(amount, date)
                             deleteFileAtEnd = True
 
@@ -162,9 +162,9 @@ class Qonto:
             attachmentIndex = attachmentNbr
 
         if ref is None:
-            fileName = formatedDate + " " + label + attachmentIndex + "." + extension
+            fileName = formatedDate + " " + label + str(attachmentIndex) + "." + extension
         else:
-            fileName = formatedDate + " " + label + " " + ref + attachmentIndex + "." + extension
+            fileName = formatedDate + " " + label + " " + ref + str(attachmentIndex) + "." + extension
 
         charsToReplace = [" ", "*", ":"]
         for char in charsToReplace:

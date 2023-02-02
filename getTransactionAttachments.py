@@ -16,7 +16,6 @@ def getLastMonthDate():
     today = datetime.date.today()
     first = today.replace(day=1)
     last_month = first - datetime.timedelta(days=1)
-    # print(last_month.strftime("%Y %m"))
     return last_month
 
 def zipfile(dir):
@@ -72,7 +71,8 @@ def main(argv):
         zipfile(dirName)
 
         # Copy zip file localy
-        cpPath = Path(r"C:/Users/compu/Documents/Administratif/adn dev/Factures Fournisseurs")
+        cpPath = Path(r"C:/Users/compu/Documents/Administratif/adn dev/Banque/Relever de comptes")
+        print("Zip file is saved: ", str(cpPath))
         shutil.copy(dirName + '.zip', cpPath)
 
         # TODO send zip file by mail to ANC2

@@ -24,6 +24,12 @@ def getZoomaliaLogin():
 def getZoomaliaPwd():
     return _get("zoomalia", "password")
 
+def getAmazonLogin():
+    return _get("amazon", "login")
+
+def getAmazonPwd():
+    return _get("amazon", "password")
+
 def _get(generalKey, key):
     f = open("confidential.json", 'r')
     credential = json.load(f)
