@@ -3,4 +3,7 @@ credentials.json
 token.json
 scrapping.py
 Qonto.code-workspace
+**.zip
+**.pdf
+**.jpeg
 __pycache__/

@@ -7,6 +7,7 @@ import googleInvoiceInMail
 import shutil
 import extInfoAccess
 from scapp_zoomalia import run_zoomalia
+from datetime import datetime, date
 
 class Qonto:
     listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "ZOOMALIA.COM", "CDVI-HI", "ToolStation"]
@@ -40,17 +41,20 @@ class Qonto:
                     label = transaction["label"]
                     ref = transaction["reference"]
                     date = transaction["settled_at"]
-                    transactionId = transaction["id"]
+                    transactionId = transaction["transaction_id"]
+
+                    # Get id of transaction
+                    id = transactionId.split('-')[-1]
 
                     # Remove / from ref
                     ref = str(ref).replace('/', '_')
 
-                    transactionDate = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    transactionDate = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%fZ")
                     if (
                         transactionDate.year == self.requestedDate.year
                         and transactionDate.month == Qonto.requestedDate.month
                     ):
-                        print("\t", label, "|", ref)
+                        # print("\t label: ", label, " | ref: ", ref, " | id: ", id)
                         if len(transaction["attachment_ids"]) != 0:
                             attachmentsIds = transaction["attachment_ids"]
                             attachmentNbr = 0
@@ -59,7 +63,7 @@ class Qonto:
                                 url, extension = self.getTransactionAttachment(attachmentId)
                                 attachmentFile = requests.get(url)
 
-                                name = self.getFileName(label, ref, date, attachmentNbr, extension)
+                                name = self.getFileName(label, id, date, attachmentNbr, extension)
 
                                 self.writeAttachmentFile(Qonto.tmpDir, name, attachmentFile)
                                 attachmentNbr =+ 1
@@ -96,10 +100,11 @@ class Qonto:
         if transactions:
             for transaction in transactions:
                 amount = transaction["amount"]
-                if amount > 0.06:
+                date = transaction["emitted_at"]
+                timestamp_date = datetime.strptime(date[:10], "%Y-%m-%d").date()
+                if amount > 0.06 and ((timestamp_date.year, timestamp_date.month) == (Qonto.requestedDate.year, Qonto.requestedDate.month)):
                     label = transaction["label"]
                     transactionId = transaction["id"]
-                    date = transaction["emitted_at"]
                     if not transaction["attachment_ids"] and label in Qonto.listManageable:
                         print("Not transaction found on Qonto for:", label)
                         if label == "Free Telecom":
@@ -164,7 +169,7 @@ class Qonto:
         if ref is None:
             fileName = formatedDate + " " + label + str(attachmentIndex) + "." + extension
         else:
-            fileName = formatedDate + " " + label + " " + ref + str(attachmentIndex) + "." + extension
+            fileName = formatedDate + " " + ref + " " + label + str(attachmentIndex) + "." + extension
 
         charsToReplace = [" ", "*", ":"]
         for char in charsToReplace:
@@ -182,7 +187,7 @@ class Qonto:
 
 
     def getFreeInvoice(self):
-        path = Path('C:/Users/compu/Cozy Drive/Administratif/Free/fbx24442322')
+        path = Path('C:/Users/compu/Cozy Drive/Administratif/Free Internet/fbx24442322')
         fileName = f'{Qonto.requestedDate.strftime("%Y%m")}_free.pdf'
         if path and fileName:
             attachmentPath = list(path.glob(fileName))

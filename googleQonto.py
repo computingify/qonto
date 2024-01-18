@@ -35,13 +35,13 @@ def getLastStatement():
     try:
         today = datetime.date.today()
         # get emails that match the query you specify
-        searchQuery = f'in:inbox after:{today.year}/{today.month}/01 before:{today.year}/{today.month}/06 from:support@qonto.com subject:"relevé bancaire"'
+        searchQuery = f'in:inbox after:{today.year}/{today.month}/01 before:{today.year}/{today.month}/06 from:support@qonto.com subject:"ADN DEV"'
         results = search_messages(service, searchQuery)
 
-        print(f"Found {len(results)} results.")
+        # print(f"Found {len(results)} results.")
         if 0 < len(results):
             statementUrl = getQontoStatementUrl(service, results[0])
-            print(statementUrl)
+            # print(statementUrl)
             webbrowser.open(statementUrl)
 
             input("Press Enter when statement downloaded")

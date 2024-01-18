@@ -56,19 +56,25 @@ def run_zoomalia(invoce_amount, transaction_date, login, pwd, tmp_dir):
             for css_link in css_links:
                 css_link['href'] = css_file_name
 
-            # Replace all "chat" occurances by "chien"
-            search_and_replace(soup_invoice, 'chat ', 'chien ')
-            search_and_replace(soup_invoice, ' chat', ' chien')
-            search_and_replace(soup_invoice, 'Chat ', 'Chien ')
-            search_and_replace(soup_invoice, ' Chat', ' Chien')
-            search_and_replace(soup_invoice, 'oiseau ', 'chien ')
-            search_and_replace(soup_invoice, ' oiseau', ' chien')
-            search_and_replace(soup_invoice, 'Oiseau ', 'Chien ')
-            search_and_replace(soup_invoice, ' Oiseau', ' Chien')
-            search_and_replace(soup_invoice, 'oiseaux ', 'chien ')
-            search_and_replace(soup_invoice, ' oiseaux', ' chien')
-            search_and_replace(soup_invoice, 'Oiseaux ', 'Chien ')
-            search_and_replace(soup_invoice, ' Oiseaux', ' Chien')
+            # # Replace all "chat" occurances by "chien"
+            # search_and_replace(soup_invoice, 'chat ', 'chien ')
+            # search_and_replace(soup_invoice, ' chat', ' chien')
+            # search_and_replace(soup_invoice, 'Chat ', 'Chien ')
+            # search_and_replace(soup_invoice, ' Chat', ' Chien')
+            # # Replace all "oiseau" occurances by "chien"
+            # search_and_replace(soup_invoice, 'oiseau ', 'chien ')
+            # search_and_replace(soup_invoice, ' oiseau', ' chien')
+            # search_and_replace(soup_invoice, 'Oiseau ', 'Chien ')
+            # search_and_replace(soup_invoice, ' Oiseau', ' Chien')
+            # search_and_replace(soup_invoice, 'oiseaux ', 'chien ')
+            # search_and_replace(soup_invoice, ' oiseaux', ' chien')
+            # search_and_replace(soup_invoice, 'Oiseaux ', 'Chien ')
+            # search_and_replace(soup_invoice, ' Oiseaux', ' Chien')
+            # # Replace all "cobayes" occurances by "chien"
+            # search_and_replace(soup_invoice, 'cobayes ', 'chien ')
+            # search_and_replace(soup_invoice, ' cobayes', ' chien')
+            # search_and_replace(soup_invoice, 'Cobayes ', 'Chien ')
+            # search_and_replace(soup_invoice, ' Cobayes', ' Chien')
 
             # generate the pdf
             pdf_path = f'{tmp_dir}/invoiceZoomalia_{str(int(invoce_amount))}euro_{date_object.strftime("%Y%m")}.pdf'
