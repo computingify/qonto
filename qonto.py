@@ -48,6 +48,7 @@ class Qonto:
 
                     # Remove / from ref
                     ref = str(ref).replace('/', '_')
+                    label = str(label).replace('/', '_')
 
                     transactionDate = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%fZ")
                     if (
@@ -59,7 +60,7 @@ class Qonto:
                             attachmentsIds = transaction["attachment_ids"]
                             attachmentNbr = 0
                             for attachmentId in attachmentsIds:
-                                # print("Attachment id = ", attachment)
+                                # print("Attachment id = ", attachmentId)
                                 url, extension = self.getTransactionAttachment(attachmentId)
                                 attachmentFile = requests.get(url)
 
@@ -183,6 +184,7 @@ class Qonto:
         if not os.path.exists(writeDir):
             os.mkdir(writeDir)
 
+        print(f"writeDir: {writeDir} ¡ name: {name}")
         open(writeDir + "/" + name, "wb").write(file.content)
 
 

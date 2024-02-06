@@ -5,19 +5,39 @@ import json
 import qonto
 import sys
 import extInfoAccess
+import subprocess
 from pathlib import Path
 from googleQonto import getLastStatement
 import printElement
 from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
 
-def getLastMonthDate():
-    # my_string = "2023-01-10"
-    # my_date = datetime.datetime.strptime(my_string, "%Y-%m-%d")
+def getLastMonthDate(months_ago=1):
+    # Get the current date and time
+    current_datetime = datetime.now()
+    if months_ago == 0:
+        return current_datetime
 
-    today = date.today()
-    first = today.replace(day=1)
-    last_month = first - timedelta(days=1)
-    return last_month
+    # Calculate the first day of the current month
+    first_day_of_current_month = current_datetime.replace(day=1)
+
+    # Calculate the last day of the specified month(s) ago
+    last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
+    last_day_of_target_month = last_day_of_last_month - relativedelta(months=months_ago-1)
+    return last_day_of_target_month
+
+def getUserMonth():
+    # Get user input for the number of months
+    while True:
+        try:
+            months_ago = int(input("Enter the number of months (0 to 3): "))
+            if 0 <= months_ago <= 3:
+                break
+            else:
+                print("Invalid input. Please enter a number between 0 and 3.")
+        except ValueError:
+            print("Invalid input. Please enter a valid integer.")
+    return months_ago
 
 def zipfile(dir):
     print(">>>>> Zip the directory", dir)
@@ -46,7 +66,8 @@ def buildQonto(dirName, date):
 def openFileExplorer(path):
     try:
         # Using os.startfile to open the file explorer at the specified path
-        os.startfile(path)
+        # os.startfile(path)
+        subprocess.run(['open', '-R', path])
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -62,9 +83,9 @@ def main(argv):
 
     if "update" in argv:
         print('============ LAUNCH only UPDATE ==============')
-        current_date = date.today()
-        dirName = current_date.strftime("%Y_%m")
-        buildQonto(dirName, current_date).addMissingAttachment()
+        date = getLastMonthDate(getUserMonth())
+        dirName = date.strftime("%Y_%m")
+        buildQonto(dirName, date).addMissingAttachment()
     else:
         print('============ LAUNCH the COMPLET generation ==============')
         lastMonth = getLastMonthDate()
@@ -80,21 +101,23 @@ def main(argv):
             ">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m")
         )
         dirName = lastMonth.strftime("%Y_%m")
-        # isError = getLastStatement()
-        # if isError == True:
-        #     return 1
+        isError = getLastStatement()
+        if isError == True:
+            return 1
 
-        # manageStatement(dirName, lastMonth)
+        manageStatement(dirName, lastMonth)
 
         buildQonto(dirName, lastMonth).run()
 
         user_input = input("Do you want to Print all invoice ? (y/N): ").strip().lower()
         if user_input == 'y':
             print("Printing...")
+            print(f"dirName = {dirName}")
             printElement.process(dirName)
 
         # Copy zip file localy
-        cpPath = Path(r"C:/Users/compu/Documents/Administratif/adn dev/Banque/Relever de comptes")
+        cpPath = os.path.join("~/Documents/Administratif/adn dev/Banque/Relever de comptes")
+        cpPath = os.path.expanduser(cpPath)
         doCopy = True
         print("path zip: ", os.path.join(cpPath, os.path.basename(dirName) + '.zip'))
         if os.path.exists(os.path.join(cpPath, os.path.basename(dirName) + '.zip')):
