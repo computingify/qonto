@@ -3,6 +3,9 @@ import json
 def getOrganisationSlug():
     return _get("qonto", "organization-slug")
 
+def getAdnGroupOrganisationSlug():
+    return _get("qonto", "organization-slug-adn-group")
+
 def getSecretKey():
     return _get("qonto", "secret-key")
 

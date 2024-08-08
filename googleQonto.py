@@ -23,7 +23,7 @@ def getQontoStatementUrl(service, message):
         return td.a.get("href")
 
 
-def getLastStatement():
+def getLastStatement(subject):
     """
     From my Gmail account, get the latest qonto mail containning statement link
     Extract the link and on the webbowser using this link
@@ -35,7 +35,7 @@ def getLastStatement():
     try:
         today = datetime.date.today()
         # get emails that match the query you specify
-        searchQuery = f'in:inbox after:{today.year}/{today.month}/01 before:{today.year}/{today.month}/06 from:support@qonto.com subject:"ADN DEV"'
+        searchQuery = f'in:inbox after:{today.year}/{today.month}/01 before:{today.year}/{today.month}/06 from:support@qonto.com subject:{subject}'
         results = search_messages(service, searchQuery)
 
         # print(f"Found {len(results)} results.")
@@ -44,11 +44,11 @@ def getLastStatement():
             # print(statementUrl)
             webbrowser.open(statementUrl)
 
-            input("Press Enter when statement downloaded")
+            input("Press Enter when statement for {subject} downloaded")
 
             return False
         else:
-            print("No statement found, Exit")
+            print("No statement found for {subject}, Exit")
             return True
         
 

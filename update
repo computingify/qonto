@@ -1,0 +1,4 @@
+#!/bin/bash
+source ~/Documents/workspace/qonto/qontoenv/bin/activate
+python3 ~/Documents/workspace/qonto/getTransactionAttachments.py update
+desactivate

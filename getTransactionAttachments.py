@@ -43,22 +43,21 @@ def zipfile(dir):
     print(">>>>> Zip the directory", dir)
     shutil.make_archive(dir, "zip", dir)
 
-def manageStatement(dir, lastMonth):
+def manageStatement(dir, lastMonth, type):
     path = Path(extInfoAccess.getDownloadDir())
-    statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{extInfoAccess.getOrganisationSlug()}-compte-principal-*statement.pdf')
+    statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{type}-compte-principal-*statement.pdf')
     statementFile = list(path.glob(statementFileName))
 
     # print(statementFile)
     if statementFile:
         if not os.path.exists(dir):
             os.mkdir(dir)
-
         try:
             shutil.move(statementFile[0], dir)
         except: 
             pass
     else:
-        print("Statement file isn't present in Dowload directory")
+        print("Statement {type} file isn't present in Download directory")
 
 def buildQonto(dirName, date):
     return qonto.Qonto("https://thirdparty.qonto.com/v2/", f'{extInfoAccess.getOrganisationSlug()}:{extInfoAccess.getSecretKey()}', dirName, date)
@@ -101,11 +100,15 @@ def main(argv):
             ">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m")
         )
         dirName = lastMonth.strftime("%Y_%m")
-        isError = getLastStatement()
+        isError = getLastStatement("ADN DEV")
+        if isError == True:
+            return 1
+        isError = getLastStatement("ADN group")
         if isError == True:
             return 1
 
-        manageStatement(dirName, lastMonth)
+        manageStatement(dirName, lastMonth, extInfoAccess.getOrganisationSlug())
+        manageStatement(dirName, lastMonth, extInfoAccess.getAdnGroupOrganisationSlug())
 
         buildQonto(dirName, lastMonth).run()
 

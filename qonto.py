@@ -10,7 +10,7 @@ from scapp_zoomalia import run_zoomalia
 from datetime import datetime, date
 
 class Qonto:
-    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "ZOOMALIA.COM", "CDVI-HI", "ToolStation"]
+    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "ZOOMALIA.COM", "HPY*ZOOMALIA.COM", "CDVI-HI", "ToolStation"]
     baseUrl = ""
     genericHeaders = {
         "Authorization": "",
@@ -70,7 +70,7 @@ class Qonto:
                                 attachmentNbr =+ 1
                                 print("\t\t", "==> Successful downloaded:", name)
                         else:
-                            print("\t\t", "==> FAILLURE Not Attachment:", label, ref, "Amount:", transaction["side"], transaction["amount"], transaction["currency"], "Date:", date)
+                            print("==> FAILLURE No Attachment:", label, ref, "Amount:", transaction["side"], transaction["amount"], transaction["currency"], "Date:", date)
                 else:
                     print(" >>>>>>>>>>>>>>>>>>>>>>>>>> DROP this transac <<<<<<<<<<<<<<<<<<<")
                     print("----- ", transaction["label"])
@@ -120,7 +120,7 @@ class Qonto:
                             attachmentPaths, fileNames = self.getCdviInvoice()
                             deleteFileAtEnd = True
 
-                        if label == "Zoomalia" or label == "ZOOMALIA.COM":
+                        if label == "Zoomalia" or label == "ZOOMALIA.COM" or label == "HPY*ZOOMALIA.COM":
                             attachmentPaths, fileNames = self.getZoomaliaInvoice(amount, date)
                             deleteFileAtEnd = True
 
