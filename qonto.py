@@ -41,6 +41,7 @@ class Qonto:
                     label = transaction["label"]
                     ref = transaction["reference"]
                     date = transaction["settled_at"]
+                    note = transaction["note"]
                     transactionId = transaction["transaction_id"]
 
                     # Get id of transaction
@@ -64,7 +65,7 @@ class Qonto:
                                 url, extension = self.getTransactionAttachment(attachmentId)
                                 attachmentFile = requests.get(url)
 
-                                name = self.getFileName(label, id, date, attachmentNbr, extension)
+                                name = self.getFileName(label, id, date, attachmentNbr, extension, note)
 
                                 self.writeAttachmentFile(Qonto.tmpDir, name, attachmentFile)
                                 attachmentNbr =+ 1
@@ -159,23 +160,20 @@ class Qonto:
         )
 
 
-    def getFileName(self, label, ref, date, attachmentNbr, extension):
+    def getFileName(self, label, ref, date, attachmentNbr, extension, note):
+
+        attachmentIndex = str(attachmentNbr) if attachmentNbr > 0 else ""
+        
         formatedDate = date.split("T")[0].replace("-", "_")
-
-        fileName = ""
-        attachmentIndex = ""
-        if 0 < attachmentNbr:
-            attachmentIndex = attachmentNbr
-
-        if ref is None:
-            fileName = formatedDate + " " + label + str(attachmentIndex) + "." + extension
-        else:
-            fileName = formatedDate + " " + ref + " " + label + str(attachmentIndex) + "." + extension
+        fileName = f"{formatedDate}_"
+        fileName = f"{fileName}{ref}_" if ref else fileName
+        fileName = f"{fileName}{label}{attachmentIndex}"
+        fileName = f"{fileName}_{note}" if note else fileName
+        fileName = f"{fileName}.{extension}"
 
         charsToReplace = [" ", "*", ":"]
         for char in charsToReplace:
-            if char in fileName:
-                fileName = fileName.replace(char, "_")
+            fileName = fileName.replace(char, "_")
 
         return fileName
 
