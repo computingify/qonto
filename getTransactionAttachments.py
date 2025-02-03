@@ -11,6 +11,7 @@ from googleQonto import getLastStatement
 import printElement
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
+import webbrowser
 
 def getLastMonthDate(months_ago=1):
     # Get the current date and time
@@ -103,6 +104,9 @@ def main(argv):
         isError = getLastStatement("ADN DEV")
         if isError == True:
             return 1
+        
+        # Open web browser to download Bourse direct statement
+        webbrowser.open("https://www.boursedirect.fr/fr/page/releves")
 
         manageStatement(dirName, lastMonth, extInfoAccess.getOrganisationSlug())
         manageStatement(dirName, lastMonth, extInfoAccess.getAdnGroupOrganisationSlug()) # Releve ADN Group Qonto
