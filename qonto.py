@@ -120,14 +120,6 @@ class Qonto:
                         if label == "CDVI-HI":
                             attachmentPaths, fileNames = self.getCdviInvoice()
                             deleteFileAtEnd = True
-
-                        if label == "Zoomalia" or label == "ZOOMALIA.COM" or label == "HPY*ZOOMALIA.COM":
-                            attachmentPaths, fileNames = self.getZoomaliaInvoice(amount, date)
-                            deleteFileAtEnd = True
-
-                        if label == "ToolStation":
-                            attachmentPaths, fileNames = self.getToolStationInvoice(amount, date)
-                            deleteFileAtEnd = True
                             
                         if attachmentPaths and fileNames:
                             for attachment, fileName in zip(attachmentPaths, fileNames):
@@ -206,31 +198,6 @@ class Qonto:
     def getCdviInvoice(self):
         mailPath = Path(googleInvoiceInMail.get("*@stripe.com", "Votre reçu nº*"))
         attachmentPath = list(mailPath.glob("Invoice*.pdf"))
-        fileName = os.path.basename(attachmentPath[0])
-
-        return attachmentPath, fileName
-
-    def getToolStationInvoice(self):
-        mailPath = Path(googleInvoiceInMail.get("info@toolstation.fr", "Commande Toolstation *"))
-        attachmentPath = list(mailPath.glob("QAF*.pdf"))
-
-        for attachment in attachmentPath:
-            fileName.append = os.path.basename(attachment)
-
-        return attachmentPath, fileName
-
-    def getZoomaliaInvoice(self, amount, invoiceDate):
-        invoicePath = run_zoomalia(amount, invoiceDate, extInfoAccess.getZoomaliaLogin(), extInfoAccess.getZoomaliaPwd(), extInfoAccess.getTmpDir())
-
-        attachmentPath = [invoicePath]
-        fileName = os.path.basename(attachmentPath[0])
-
-        return attachmentPath, fileName
-
-    def getAmazonInvoice(self, amount, invoiceDate):
-        invoicePath = run_amazon(amount, invoiceDate, extInfoAccess.getAmazonLogin(), extInfoAccess.getAmazonPwd(), extInfoAccess.getTmpDir())
-
-        attachmentPath = [invoicePath]
         fileName = os.path.basename(attachmentPath[0])
 
         return attachmentPath, fileName

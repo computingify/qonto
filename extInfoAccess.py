@@ -6,6 +6,9 @@ def getOrganisationSlug():
 def getAdnGroupOrganisationSlug():
     return _get("qonto", "organization-slug-adn-group")
 
+def getSolioOrganisationSlug():
+    return _get("qonto", "organization-slug-solio")
+
 def getSecretKey():
     return _get("qonto", "secret-key")
 

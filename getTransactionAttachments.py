@@ -43,9 +43,9 @@ def zipfile(dir):
     print(">>>>> Zip the directory", dir)
     shutil.make_archive(dir, "zip", dir)
 
-def manageStatement(dir, lastMonth, type):
+def manageStatement(dir, lastMonth, type, endedName="compte-principal-*statement.pdf"):
     path = Path(extInfoAccess.getDownloadDir())
-    statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{type}-compte-principal-*statement.pdf')
+    statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{type}-{endedName}')
     statementFile = list(path.glob(statementFileName))
 
     # print(statementFile)
@@ -103,12 +103,11 @@ def main(argv):
         isError = getLastStatement("ADN DEV")
         if isError == True:
             return 1
-        isError = getLastStatement("ADN group")
-        if isError == True:
-            return 1
 
         manageStatement(dirName, lastMonth, extInfoAccess.getOrganisationSlug())
-        manageStatement(dirName, lastMonth, extInfoAccess.getAdnGroupOrganisationSlug())
+        manageStatement(dirName, lastMonth, extInfoAccess.getAdnGroupOrganisationSlug()) # Releve ADN Group Qonto
+        manageStatement(dirName, lastMonth, extInfoAccess.getAdnGroupOrganisationSlug(), "compte-titre-BourseDirect-statement") # Releve Bourse Direct pour ADN Group
+        manageStatement(dirName, lastMonth, extInfoAccess.getSolioOrganisationSlug())
 
         buildQonto(dirName, lastMonth).run()
 
