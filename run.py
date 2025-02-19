@@ -12,6 +12,7 @@ def activate_venv_and_run():
     if sys.platform == "win32":
         activate_script = os.path.join(venv_path, "Scripts", "activate.bat") 
     else:
+        print('On Unix platform')
         activate_script = f"source {os.path.join(venv_path, 'bin', 'activate')}"
 
     # Exécution du script principal
@@ -19,9 +20,10 @@ def activate_venv_and_run():
     
     try:
         if sys.platform == "win32":
-            subprocess.run(f"{activate_script} && python {script_path}", shell=True, check=True)
+            subprocess.run(f"{activate_script} && python3 {script_path}", shell=True, check=True)
         else:
-            subprocess.run(f"{activate_script}; python {script_path}", shell=True, check=True)
+            subprocess.run(f"{activate_script}; python3 {script_path}", shell=True, check=True)
+        
         return 0
     except subprocess.CalledProcessError as e:
         print(f"Erreur lors de l'exécution: {e}")

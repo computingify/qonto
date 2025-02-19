@@ -1,6 +1,5 @@
 To launch the script:
-source de venv
-python3 getTransactionAttachments.py
+run: python3 run.py
 
 To install required tools:
 pip3 install -r ./install.txt
