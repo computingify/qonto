@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 import shutil
 import os
 import json
@@ -12,6 +13,11 @@ import printElement
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 import webbrowser
+
+class Society(str, Enum):
+    ADN_DEV = "adn-dev"
+    ADN_GROUP = "adn-group"
+    SOLIO = "solio"
 
 def getLastMonthDate(months_ago=1):
     # Get the current date and time
@@ -60,8 +66,8 @@ def manageStatement(dir, lastMonth, type, endedName="compte-principal-*statement
     else:
         print("Statement {type} file isn't present in Download directory")
 
-def buildQonto(dirName, date):
-    return qonto.Qonto("https://thirdparty.qonto.com/v2/", f'{extInfoAccess.getOrganisationSlug()}:{extInfoAccess.getSecretKey()}', dirName, date)
+def buildQonto(dirName, date, society):
+    return qonto.Qonto("https://thirdparty.qonto.com/v2/", dirName, date, society)
 
 def openFileExplorer(path):
     try:
@@ -85,7 +91,7 @@ def main(argv):
         print('============ LAUNCH only UPDATE ==============')
         date = getLastMonthDate(getUserMonth())
         dirName = date.strftime("%Y_%m")
-        buildQonto(dirName, date).addMissingAttachment()
+        buildQonto(dirName, date, Society.ADN_DEV).addMissingAttachment()
     else:
         print('============ LAUNCH the COMPLET generation ==============')
         lastMonth = getLastMonthDate()
@@ -97,10 +103,7 @@ def main(argv):
             if not lastMonth:
                 return 1
             print(lastMonth)
-        print(
-            ">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m")
-        )
-        dirName = lastMonth.strftime("%Y_%m")
+        print(">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m"))
         isError = getLastStatement("ADN DEV")
         if isError == True:
             return 1
@@ -108,51 +111,52 @@ def main(argv):
         # Open web browser to download Bourse direct statement
         webbrowser.open("https://www.boursedirect.fr/fr/page/releves")
 
-        manageStatement(dirName, lastMonth, extInfoAccess.getOrganisationSlug())
-        manageStatement(dirName, lastMonth, extInfoAccess.getAdnGroupOrganisationSlug()) # Releve ADN Group Qonto
-        manageStatement(dirName, lastMonth, extInfoAccess.getAdnGroupOrganisationSlug(), "compte-titre-BourseDirect-statement") # Releve Bourse Direct pour ADN Group
-        manageStatement(dirName, lastMonth, extInfoAccess.getSolioOrganisationSlug())
+        # Handle all society
+        for society in Society:
+            dirName = lastMonth.strftime("%Y_%m") + society
+            manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society))
+            if society == Society.ADN_GROUP:
+                manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society), "compte-titre-BourseDirect-statement") # Releve Bourse Direct pour ADN Group
+                
+            buildQonto(dirName, lastMonth, society).run()
 
-        buildQonto(dirName, lastMonth).run()
-
-        user_input = input("Do you want to Print all invoice ? (y/N): ").strip().lower()
-        if user_input == 'y':
-            print("Printing...")
-            print(f"dirName = {dirName}")
-            printElement.process(dirName)
-
-        # Copy zip file localy
-        cpPath = os.path.join("~/Documents/Administratif/adn dev/Banque/Relever de comptes")
-        cpPath = os.path.expanduser(cpPath)
-        doCopy = True
-        print("path zip: ", os.path.join(cpPath, os.path.basename(dirName) + '.zip'))
-        if os.path.exists(os.path.join(cpPath, os.path.basename(dirName) + '.zip')):
-            user_input = input(f"The file {os.path.basename(dirName)}.zip already exists. Do you want to override it ? (y/N): ").strip().lower()
+            user_input = input("Do you want to Print all invoice ? (y/N): ").strip().lower()
             if user_input == 'y':
-                # Enable the copy operation
-                doCopy = True
-            else:
-                doCopy = False
-                print("File not copied. User chose not to override.")
-        zipfile(dirName)
-        if doCopy:
-            print("Zip file is saved: ", str(cpPath))
-            shutil.copy(dirName + '.zip', cpPath)
+                print("Printing...")
+                print(f"dirName = {dirName}")
+                printElement.process(dirName)
 
-        openFileExplorer(cpPath)
+            # Copy zip file localy
+            cpPath = extInfoAccess.getZipFileDestination(society)
+            doCopy = True
+            print("path zip: ", os.path.join(cpPath, os.path.basename(dirName) + '.zip'))
+            if os.path.exists(os.path.join(cpPath, os.path.basename(dirName) + '.zip')):
+                user_input = input(f"The file {os.path.basename(dirName)}.zip already exists. Do you want to override it ? (y/N): ").strip().lower()
+                if user_input == 'y':
+                    # Enable the copy operation
+                    doCopy = True
+                else:
+                    doCopy = False
+                    print("File not copied. User choose to don't override.")
+            zipfile(dirName)
+            if doCopy:
+                print("Zip file is saved: ", str(cpPath))
+                shutil.copy(dirName + '.zip', cpPath)
 
+            openFileExplorer(cpPath)
+
+            # Remove tmp files
+            shutil.rmtree(dirName)
+            
+            print('=== PROCESS ended for {society} ===')
+        
         # TODO send zip file by mail to ANC2
         # TODO Filter on qonto transaction to get only current month
-        # TODO get facture Free directly from Free API (remove Cozy usage)
-        # TODO try to use scrapping to get releve de compte from qonto in place of opening webpage
-        # TODO can update on user defined month
         # TODO Oauth sur compte Qonto => Impossible because needs to register the application to Qonto
         # TODO recherche des transactions qonto avec un filtre sur les dates
 
-        # Remove tmp files
-        shutil.rmtree(dirName)
 
-    print('============ DONE ==============')
+    print('============ DONE ============')
 
     # print(json.dumps(response, indent=2))
 

@@ -1,40 +1,49 @@
 import json
+import os
 
-def getOrganisationSlug():
-    return _get("qonto", "organization-slug")
+def getOrganisation(society):
+    if(checkIfExist(society)):
+        return _get("qonto", society, "organization-slug")
+    else:
+        return ""
 
-def getAdnGroupOrganisationSlug():
-    return _get("qonto", "organization-slug-adn-group")
+def getSecretKey(society):
+    if(checkIfExist(society)):
+        return _get("qonto", society, "secret-key")
+    else:
+        return ""
 
-def getSolioOrganisationSlug():
-    return _get("qonto", "organization-slug-solio")
+def getSlug(society):
+    if(checkIfExist(society)):
+        return _get("qonto", society, "slug")
+    else:
+        return ""
 
-def getSecretKey():
-    return _get("qonto", "secret-key")
-
-def getSlug():
-    return _get("qonto", "slug")
-
-def getIban():
-    return _get("qonto", "iban")
+def getIban(society):
+    if(checkIfExist(society)):
+        return _get("qonto", society, "iban")
+    else:
+        return ""
 
 def getDownloadDir():
-    return _get("paths", "downloads")
+    return os.path.expanduser(os.path.join(_get("paths", "downloads")))
 
 def getTmpDir():
     return _get("paths", "tmp")
 
-def getZoomaliaLogin():
-    return _get("zoomalia", "login")
-
-def getZoomaliaPwd():
-    return _get("zoomalia", "password")
-
-def getAmazonLogin():
-    return _get("amazon", "login")
-
-def getAmazonPwd():
-    return _get("amazon", "password")
+def getZipFileDestination(society):
+    if(checkIfExist(society)):
+        zipPath = _get("paths", society, "zipSave")
+        zipPath = os.path.join(zipPath)
+        return os.path.expanduser(zipPath)
+    else:
+        return ""
+    
+def checkIfExist(society):
+    if( society == "adn-dev" or society == "adn-group" or society == "solio"):
+        return True
+    else:
+        return False
 
 def _get(generalKey, key):
     f = open("confidential.json", 'r')

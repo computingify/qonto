@@ -6,22 +6,22 @@ from pathlib import Path
 import googleInvoiceInMail
 import shutil
 import extInfoAccess
-from scapp_zoomalia import run_zoomalia
 from datetime import datetime, date
 
 class Qonto:
-    listManageable = ["Free Telecom", "Google Cloud France SARL", "Zoomalia", "ZOOMALIA.COM", "HPY*ZOOMALIA.COM", "CDVI-HI", "ToolStation"]
+    listManageable = ["Google Cloud France SARL", "CDVI-HI"]
     baseUrl = ""
     genericHeaders = {
         "Authorization": "",
     }
     tmpDir = ""
 
-    def __init__(self, baseUrl, authorizationKey, tmpDir, requestedDate):
+    def __init__(self, baseUrl, tmpDir, requestedDate, society):
         Qonto.baseUrl = baseUrl
-        Qonto.genericHeaders["Authorization"] = authorizationKey
+        Qonto.genericHeaders["Authorization"] = f'{extInfoAccess.getOrganisation(society)}:{extInfoAccess.getSecretKey(society)}'
         Qonto.tmpDir = tmpDir
         Qonto.requestedDate = requestedDate
+        Qonto.society = society
 
     def run(self):
         print(">>>>> Get all transaction from Qonto")
@@ -29,7 +29,7 @@ class Qonto:
         self.receiveTransactionAttachment()
 
     def receiveTransactionAttachment(self):
-        organisationUrl = Qonto.baseUrl + f'organizations/{extInfoAccess.getOrganisationSlug()}'
+        organisationUrl = Qonto.baseUrl + f'organizations/{extInfoAccess.getOrganisation(Qonto.society)}'
         
         transactions = self.getTransaction()
 
@@ -85,8 +85,8 @@ class Qonto:
         headers["Content-Type"] = "application/json"
 
         data = {
-            "slug": extInfoAccess.getSlug(),
-            "iban": extInfoAccess.getIban(),
+            "slug": extInfoAccess.getSlug(Qonto.society),
+            "iban": extInfoAccess.getIban(Qonto.society),
             "status": "completed",
         }
 
@@ -109,10 +109,6 @@ class Qonto:
                     transactionId = transaction["id"]
                     if not transaction["attachment_ids"] and label in Qonto.listManageable:
                         print("Not transaction found on Qonto for:", label)
-                        if label == "Free Telecom":
-                            attachmentPaths, fileNames = self.getFreeInvoice()
-                            deleteFileAtEnd = False
-
                         if label == "Google Cloud France SARL":
                             attachmentPaths, fileNames = self.getGoogleWorkspaceInvoice()
                             deleteFileAtEnd = True
@@ -176,17 +172,6 @@ class Qonto:
 
         print(f"writeDir: {writeDir} ¡ name: {name}")
         open(writeDir + "/" + name, "wb").write(file.content)
-
-
-    def getFreeInvoice(self):
-        path = Path('C:/Users/compu/Cozy Drive/Administratif/Free Internet/fbx24442322')
-        fileName = f'{Qonto.requestedDate.strftime("%Y%m")}_free.pdf'
-        if path and fileName:
-            attachmentPath = list(path.glob(fileName))
-        else:
-            print(f"ERROR: path or label empty: \n path: {path}\n fileName: {fileName}")
-        
-        return attachmentPath, fileName
 
     def getGoogleWorkspaceInvoice(self):
         mailPath = Path(googleInvoiceInMail.get("payments-noreply@google.com", "Google Workspace : votre facture pour adn-dev.fr est disponible"))

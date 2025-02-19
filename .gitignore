@@ -7,3 +7,5 @@ Qonto.code-workspace
 **.pdf
 **.jpeg
 __pycache__/
+.DS_Store
+QontoUpdate.app/**

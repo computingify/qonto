@@ -45,11 +45,11 @@ def getLastStatement(subject):
         today = datetime.date.today()
         # get emails that match the query you specify
         searchQuery = f'in:inbox after:{today.year}/{today.month}/01 before:{today.year}/{today.month}/10 from:support@qonto.com subject:{subject}'
-        print("searchQuery: {searchQuery}")
+        print(f"searchQuery: {searchQuery}")
         results = search_messages(service, searchQuery)
 
-        print(f"Found {len(results)} results: {results}")
         if 0 < len(results):
+            print(f"Found {len(results)} results: {results}")
             for email in results:
                 statementUrl = getQontoStatementUrl(service, email)
                 if statementUrl:
@@ -62,7 +62,7 @@ def getLastStatement(subject):
 
             return False
         else:
-            print("No statement found for {subject}, Exit")
+            print(f"No statement found for {subject}, Exit")
             return True
         
 
