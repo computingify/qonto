@@ -52,10 +52,14 @@ def zipfile(dir):
 
 def manageStatement(dir, lastMonth, type, endedName="compte-principal-*statement.pdf"):
     path = Path(extInfoAccess.getDownloadDir())
-    statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{type}-{endedName}')
+    
+    # If it's not the default statement name, we just read the name endedName
+    if("compte-principal-*statement.pdf" == endedName):
+        statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{type}-{endedName}')
+    else:
+        statementFileName = (f'{endedName}')
     statementFile = list(path.glob(statementFileName))
 
-    # print(statementFile)
     if statementFile:
         if not os.path.exists(dir):
             os.mkdir(dir)
@@ -64,7 +68,7 @@ def manageStatement(dir, lastMonth, type, endedName="compte-principal-*statement
         except: 
             pass
     else:
-        print("Statement {type} file isn't present in Download directory")
+        print(f"Statement {type} file isn't present in Download directory")
 
 def buildQonto(dirName, date, society):
     return qonto.Qonto("https://thirdparty.qonto.com/v2/", dirName, date, society)
@@ -104,7 +108,7 @@ def main(argv):
                 return 1
             print(lastMonth)
         print(">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m"))
-        isError = getLastStatement("ADN DEV")
+        isError = getLastStatement(Society.ADN_DEV)
         if isError == True:
             return 1
         
@@ -113,10 +117,11 @@ def main(argv):
 
         # Handle all society
         for society in Society:
-            dirName = lastMonth.strftime("%Y_%m") + society
+            print(f'>>>>>>>>>>>> START PROCESS for {society} <<<<<<<<<<<<')
+            dirName = lastMonth.strftime("%Y_%m_") + society
             manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society))
             if society == Society.ADN_GROUP:
-                manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society), "compte-titre-BourseDirect-statement") # Releve Bourse Direct pour ADN Group
+                manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society), "Relevé de compte Bourse Direct.pdf") # Releve Bourse Direct pour ADN Group
                 
             buildQonto(dirName, lastMonth, society).run()
 
@@ -147,8 +152,9 @@ def main(argv):
 
             # Remove tmp files
             shutil.rmtree(dirName)
+            shutil.rmtree(f'{dirName}.zip')
             
-            print('=== PROCESS ended for {society} ===')
+            print(f'======= PROCESS ended for {society} =======')
         
         # TODO send zip file by mail to ANC2
         # TODO Filter on qonto transaction to get only current month

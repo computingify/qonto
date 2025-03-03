@@ -56,7 +56,7 @@ def getLastStatement(subject):
                     # print("statementUrl : " + statementUrl)
                     webbrowser.open(statementUrl)
 
-                    input("Press Enter when statement for {subject} downloaded")
+                    input(f"Press Enter when statement for {subject} downloaded")
                 # else:
                 #     print("Not find")
 

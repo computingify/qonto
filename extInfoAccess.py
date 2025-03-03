@@ -45,11 +45,14 @@ def checkIfExist(society):
     else:
         return False
 
-def _get(generalKey, key):
+def _get(generalKey, society, key=""):
     f = open("confidential.json", 'r')
     credential = json.load(f)
     try:
-        value = credential[generalKey][key]
+        if key == "":
+            value = credential[generalKey][society]
+        else:
+            value = credential[generalKey][society][key]
     except:
         pass
 
