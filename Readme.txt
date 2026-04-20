@@ -1,8 +1,12 @@
 To launch the script:
-run: python3 run.py
+python3 gui_launcher.py
+
 
 To install required tools:
 pip3 install -r ./install.txt
+
+Then enable GUI:
+chmod +x gui_launcher.py
 
 from weasyprint to convert HTML page into pdf (usefull for zoomalia invoice)
 to install: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html
@@ -13,3 +17,6 @@ https://chrome.softwaredownload.co.in/chrome-93-0-4577
 
 Install chrome driver (API to deal with chrome)
 https://chromedriver.chromium.org/downloads
+
+Old version
+run: python3 run.py

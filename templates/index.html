@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qonto Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 13px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card {
+            background: #151a2f;
+            border: 1px solid #1e2749;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            border-color: #2a3a5a;
+            box-shadow: 0 8px 24px rgba(0, 212, 255, 0.1);
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #00d4ff;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            background: #00d4ff;
+            border-radius: 50%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            color: #0a0e27;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-start:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #ff4757, #ff1744);
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(255, 23, 68, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            background: #1e2749;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toggle input {
+            display: none;
+        }
+
+        .toggle-circle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s;
+        }
+
+        .toggle input:checked + .toggle-circle {
+            transform: translateX(22px);
+        }
+
+        .toggle input:checked ~ .toggle {
+            background: #00d4ff;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: #0f1424;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+            transition: all 0.3s;
+        }
+
+        .status-indicator.running {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .logs-container {
+            background: #0f1424;
+            border: 1px solid #1e2749;
+            border-radius: 8px;
+            padding: 16px;
+            height: 280px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .log-line {
+            color: #00d4ff;
+            margin-bottom: 6px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .log-line.auto {
+            color: #00ff88;
+        }
+
+        .log-line.error {
+            color: #ff4757;
+        }
+
+        .log-line.info {
+            color: #ffd700;
+        }
+
+        .logs-container::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .logs-container::-webkit-scrollbar-track {
+            background: #0a0e27;
+        }
+
+        .logs-container::-webkit-scrollbar-thumb {
+            background: #00d4ff;
+            border-radius: 3px;
+        }
+
+        .logs-container::-webkit-scrollbar-thumb:hover {
+            background: #0099ff;
+        }
+
+        .question-box {
+            background: #1a3a2a;
+            border: 1.5px solid #00d4a0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .question-box.hidden {
+            display: none;
+        }
+
+        .question-text {
+            font-size: 14px;
+            color: #00ff88;
+            margin-bottom: 14px;
+            font-weight: 500;
+        }
+
+        .question-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0f1424;
+            border: 1px solid #00d4a0;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            margin-bottom: 12px;
+            transition: all 0.3s;
+        }
+
+        .question-input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+        }
+
+        .question-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .question-buttons button {
+            flex: 1;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .btn-yes {
+            background: linear-gradient(135deg, #00ff88, #00d4a0);
+            color: #0a0e27;
+        }
+
+        .btn-yes:hover {
+            box-shadow: 0 8px 16px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-no {
+            background: #2a3a5a;
+            color: #888;
+            border: 1px solid #1e2749;
+        }
+
+        .btn-no:hover {
+            background: #3a4a6a;
+            color: #e0e0e0;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .logs-container {
+                height: 240px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ QONTO</h1>
+            <p>Transaction Manager</p>
+        </div>
+
+        <!-- Boutons de contrôle -->
+        <div class="card">
+            <div class="section-title">Contrôles</div>
+            <div class="controls">
+                <button class="btn-start" id="startBtn" onclick="startScript()">▶ Démarrer</button>
+                <button class="btn-stop" id="stopBtn" onclick="stopScript()" disabled>⏹ Arrêter</button>
+            </div>
+        </div>
+
+        <!-- Mode automatique -->
+        <div class="card">
+            <div class="section-title">Options</div>
+            <div class="toggle-wrapper">
+                <label class="toggle">
+                    <input type="checkbox" id="autoMode">
+                    <div class="toggle-circle"></div>
+                </label>
+                <span class="toggle-label">Mode automatique</span>
+            </div>
+        </div>
+
+        <!-- Questions -->
+        <div class="card">
+            <div class="question-box hidden" id="questionBox">
+                <div class="question-text" id="questionText">Question en attente...</div>
+                <input type="text" class="question-input" id="answerInput" placeholder="Réponse...">
+                <div class="question-buttons">
+                    <button class="btn-yes" onclick="sendYes()">Oui</button>
+                    <button class="btn-no" onclick="sendNo()">Non</button>
+                    <button class="btn-start" onclick="sendCustom()">Envoyer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div class="card">
+            <div class="status-bar">
+                <div class="status-indicator" id="statusDot"></div>
+                <span id="statusText">● Inactif</span>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card">
+            <div class="section-title">Logs</div>
+            <div class="logs-container" id="logsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        const pollInterval = 300;
+
+        async function startScript() {
+            const autoMode = document.getElementById('autoMode').checked;
+            try {
+                await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ auto: autoMode })
+                });
+                isRunning = true;
+                updateUI();
+                poll();
+            } catch (err) {
+                console.error('Erreur:', err);
+            }
+        }
+
+        async function stopScript() {
+            try {
+                await fetch('/api/stop', { method: 'POST' });
+                isRunning = false;
+                updateUI();
+            } catch (err) {
+                console.error('Erreur:', err);
+            }
+        }
+
+        async function sendAnswer(answer) {
+            try {
+                await fetch('/api/answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ answer: answer })
+                });
+                document.getElementById('questionBox').classList.add('hidden');
+                document.getElementById('answerInput').value = '';
+            } catch (err) {
+                console.error('Erreur:', err);
+            }
+        }
+
+        function sendYes() { sendAnswer('y'); }
+        function sendNo() { sendAnswer('n'); }
+        function sendCustom() {
+            const answer = document.getElementById('answerInput').value.trim();
+            if (answer) sendAnswer(answer);
+        }
+
+        async function poll() {
+            try {
+                const response = await fetch('/api/logs');
+                const data = await response.json();
+                const container = document.getElementById('logsContainer');
+                
+                data.logs.forEach(log => {
+                    const line = document.createElement('div');
+                    line.className = 'log-line';
+                    
+                    if (log.includes('[AUTO]')) line.classList.add('auto');
+                    else if (log.includes('✗')) line.classList.add('error');
+                    else if (log.includes('?')) line.classList.add('info');
+                    
+                    line.textContent = log;
+                    container.appendChild(line);
+                });
+
+                if (data.logs.length > 0) container.scrollTop = container.scrollHeight;
+                
+                isRunning = data.running;
+                updateUI();
+
+                if (isRunning) setTimeout(poll, pollInterval);
+            } catch (err) {
+                if (isRunning) setTimeout(poll, pollInterval);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('startBtn').disabled = isRunning;
+            document.getElementById('stopBtn').disabled = !isRunning;
+            document.getElementById('autoMode').disabled = isRunning;
+
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+
+            if (isRunning) {
+                dot.classList.add('running');
+                text.textContent = '● En cours...';
+            } else {
+                dot.classList.remove('running');
+                text.textContent = '● Inactif';
+            }
+        }
+
+        updateUI();
+        document.getElementById('answerInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendCustom();
+        });
+    </script>
+</body>
+</html>
