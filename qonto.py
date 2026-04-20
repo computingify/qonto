@@ -170,7 +170,6 @@ class Qonto:
         if not os.path.exists(writeDir):
             os.mkdir(writeDir)
 
-        print(f"writeDir: {writeDir} ¡ name: {name}")
         open(writeDir + "/" + name, "wb").write(file.content)
 
     def getGoogleWorkspaceInvoice(self):

@@ -121,7 +121,15 @@ def main(argv):
             dirName = lastMonth.strftime("%Y_%m_") + society
             manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society))
             if society == Society.ADN_GROUP:
-                manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society), "Relevé de compte Bourse Direct.pdf") # Releve Bourse Direct pour ADN Group
+                manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society), "pdf_*.pdf") # Releve Bourse Direct pour ADN Group
+                # Rename the file pdf_*.pdf into Relevé_de_compte_Bourse_Direct.pdf
+                bourse_direct_file = list(Path(dirName).glob("pdf_*.pdf"))
+                if bourse_direct_file:
+                    new_name = Path(dirName) / "Relevé_de_compte_Bourse_Direct.pdf"
+                    bourse_direct_file[0].rename(new_name)
+                    print(f"Renamed {bourse_direct_file[0]} to {new_name}")
+                else:
+                    print("No file matching 'pdf_*.pdf' found to rename.")
                 
             buildQonto(dirName, lastMonth, society).run()
 
@@ -151,8 +159,12 @@ def main(argv):
             openFileExplorer(cpPath)
 
             # Remove tmp files
-            shutil.rmtree(dirName)
-            shutil.rmtree(f'{dirName}.zip')
+            try:
+                shutil.rmtree(dirName)
+            except FileNotFoundError:
+                print(f"Directory {dirName} does not exist, skipping removal.")
+            except Exception as e:
+                print(f"An error occurred while removing directory {dirName}: {e}")
             
             print(f'======= PROCESS ended for {society} =======')
         
