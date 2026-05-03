@@ -40,14 +40,14 @@ class ScriptManager:
             script_path = os.path.join(os.path.dirname(__file__), "getTransactionAttachments.py")
             
             self.process = subprocess.Popen(
-                [venv_python, script_path],
+                [venv_python, script_path, "--noGui"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 cwd=os.path.dirname(__file__)
             )
-            
+    
             while self.running and self.process.poll() is None:
                 line = self.process.stdout.readline()
                 if line:
@@ -65,21 +65,9 @@ class ScriptManager:
     
     def _handle_auto_response(self, line):
         """Répond automatiquement aux questions du script"""
-        lower = line.lower()
-        
-        if "will run on date" in lower and "?" in lower:
-            self.process.stdin.write("y\n")
-            self.process.stdin.flush()
-            self.logs.put("[AUTO] → Oui")
-        elif "enter a date" in lower:
-            date = datetime.now().strftime("%Y_%m")
-            self.process.stdin.write(date + "\n")
-            self.process.stdin.flush()
-            self.logs.put(f"[AUTO] → {date}")
-        elif "print all invoice" in lower or "override" in lower:
-            self.process.stdin.write("n\n")
-            self.process.stdin.flush()
-            self.logs.put("[AUTO] → Non")
+        self.process.stdin.write("\n")
+        self.process.stdin.flush()
+        self.logs.put("[AUTO] → default value")
     
     def stop(self):
         """Arrête le processus"""
