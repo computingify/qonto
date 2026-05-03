@@ -354,7 +354,7 @@
         
         /* Classe pour la couleur verte, à activer avec JavaScript */
         .status-green {
-            background-color: green !important; 
+            background-color: rgb(30, 227, 30) !important; 
         }
 
         @media (max-width: 600px) {
@@ -463,8 +463,7 @@
                     const line = document.createElement('div');
                     line.className = 'log-line';
                     
-                    if (log.includes('[AUTO]')) line.classList.add('auto');
-                    else if (log.includes('✗')) line.classList.add('error');
+                    if (log.includes('✗')) line.classList.add('error');
                     else if (log.includes('?')) line.classList.add('info');
                     else if (log.includes('======= PROCESS ended for adn-dev =======')) setStatusGreen("adn-dev-status");
                     else if (log.includes('======= PROCESS ended for adn-group   =======')) setStatusGreen("adn-group-status");

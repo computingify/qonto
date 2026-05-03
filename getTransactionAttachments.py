@@ -108,7 +108,7 @@ def main(argv):
                 return 1
             print(lastMonth)
             
-        if not("noGui" in argv):
+        if not("--noGui" in argv):
             print(">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m"))
             isError = getLastStatement(Society.ADN_DEV)
             if isError == True:

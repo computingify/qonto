@@ -67,7 +67,6 @@ class ScriptManager:
         """Répond automatiquement aux questions du script"""
         self.process.stdin.write("\n")
         self.process.stdin.flush()
-        self.logs.put("[AUTO] → default value")
     
     def stop(self):
         """Arrête le processus"""
