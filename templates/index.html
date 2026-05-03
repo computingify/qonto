@@ -323,6 +323,40 @@
             color: #e0e0e0;
         }
 
+        /* Styles pour la mise en page (sur une seule ligne) */
+        .status-container {
+            display: flex;
+            align-items: center;
+            background: #0f1424;
+            border-radius: 8px;
+            font-size: 13px;
+            justify-content: space-between; 
+            width: 100%;
+            padding: 0 13px;
+        }
+
+        /* Style pour l'affichage de chaque société (rond + nom) */
+        .company-status {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Espace entre le rond et le nom */
+            font-family: Arial, sans-serif;
+        }
+
+        /* Style par défaut du rond (gris) */
+        .status-circle {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: gray; 
+            transition: background-color 0.3s; /* Transition pour un effet visuel doux */
+        }
+        
+        /* Classe pour la couleur verte, à activer avec JavaScript */
+        .status-green {
+            background-color: green !important; 
+        }
+
         @media (max-width: 600px) {
             .header h1 {
                 font-size: 24px;
@@ -358,36 +392,28 @@
             </div>
         </div>
 
-        <!-- Mode automatique -->
-        <div class="card">
-            <div class="section-title">Options</div>
-            <div class="toggle-wrapper">
-                <label class="toggle">
-                    <input type="checkbox" id="autoMode">
-                    <div class="toggle-circle"></div>
-                </label>
-                <span class="toggle-label">Mode automatique</span>
-            </div>
-        </div>
-
-        <!-- Questions -->
-        <div class="card">
-            <div class="question-box hidden" id="questionBox">
-                <div class="question-text" id="questionText">Question en attente...</div>
-                <input type="text" class="question-input" id="answerInput" placeholder="Réponse...">
-                <div class="question-buttons">
-                    <button class="btn-yes" onclick="sendYes()">Oui</button>
-                    <button class="btn-no" onclick="sendNo()">Non</button>
-                    <button class="btn-start" onclick="sendCustom()">Envoyer</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Status -->
         <div class="card">
             <div class="status-bar">
                 <div class="status-indicator" id="statusDot"></div>
                 <span id="statusText">● Inactif</span>
+            </div>
+
+            <div class="status-container">
+                <div class="company-status">
+                    <span id="adn-dev-status" class="status-circle"></span>
+                    <span>ADN-Dev</span>
+                </div>
+
+                <div class="company-status">
+                    <span id="adn-group-status" class="status-circle"></span>
+                    <span>ADN-Group</span>
+                </div>
+                
+                <div class="company-status">
+                    <span id="solio-status" class="status-circle"></span>
+                    <span>Solio</span>
+                </div>
             </div>
         </div>
 
@@ -403,12 +429,11 @@
         const pollInterval = 300;
 
         async function startScript() {
-            const autoMode = document.getElementById('autoMode').checked;
             try {
                 await fetch('/api/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ auto: autoMode })
+                    body: JSON.stringify({ auto: true })
                 });
                 isRunning = true;
                 updateUI();
@@ -428,27 +453,6 @@
             }
         }
 
-        async function sendAnswer(answer) {
-            try {
-                await fetch('/api/answer', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ answer: answer })
-                });
-                document.getElementById('questionBox').classList.add('hidden');
-                document.getElementById('answerInput').value = '';
-            } catch (err) {
-                console.error('Erreur:', err);
-            }
-        }
-
-        function sendYes() { sendAnswer('y'); }
-        function sendNo() { sendAnswer('n'); }
-        function sendCustom() {
-            const answer = document.getElementById('answerInput').value.trim();
-            if (answer) sendAnswer(answer);
-        }
-
         async function poll() {
             try {
                 const response = await fetch('/api/logs');
@@ -462,7 +466,10 @@
                     if (log.includes('[AUTO]')) line.classList.add('auto');
                     else if (log.includes('✗')) line.classList.add('error');
                     else if (log.includes('?')) line.classList.add('info');
-                    
+                    else if (log.includes('======= PROCESS ended for adn-dev =======')) setStatusGreen("adn-dev-status");
+                    else if (log.includes('======= PROCESS ended for adn-group   =======')) setStatusGreen("adn-group-status");
+                    else if (log.includes('======= PROCESS ended for solio =======')) setStatusGreen("solio-status");
+
                     line.textContent = log;
                     container.appendChild(line);
                 });
@@ -478,10 +485,18 @@
             }
         }
 
+        // Fonction pour mettre à jour l'état d'un rond spécifique
+        function setStatusGreen(id) {
+            const circle = document.getElementById(id);
+            if (circle) {
+                // Ajoute la classe 'status-green' qui écrase la couleur grise
+                circle.classList.add('status-green'); 
+            }
+        }
+
         function updateUI() {
             document.getElementById('startBtn').disabled = isRunning;
             document.getElementById('stopBtn').disabled = !isRunning;
-            document.getElementById('autoMode').disabled = isRunning;
 
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
@@ -496,9 +511,6 @@
         }
 
         updateUI();
-        document.getElementById('answerInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendCustom();
-        });
     </script>
 </body>
 </html>
