@@ -107,13 +107,15 @@ def main(argv):
             if not lastMonth:
                 return 1
             print(lastMonth)
-        print(">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m"))
-        isError = getLastStatement(Society.ADN_DEV)
-        if isError == True:
-            return 1
-        
-        # Open web browser to download Bourse direct statement
-        webbrowser.open("https://www.boursedirect.fr/fr/page/releves")
+            
+        if not("noGui" in argv):
+            print(">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m"))
+            isError = getLastStatement(Society.ADN_DEV)
+            if isError == True:
+                return 1
+            
+            # Open web browser to download Bourse direct statement
+            webbrowser.open("https://www.boursedirect.fr/fr/page/releves")
 
         # Handle all society
         for society in Society:
