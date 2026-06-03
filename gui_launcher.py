@@ -98,10 +98,44 @@ class ScriptManager:
 manager = ScriptManager()
 
 
+# --- Arrêt automatique quand la page web est fermée ---
+# La page envoie un « battement de cœur » régulier. Sans battement pendant
+# HEARTBEAT_TIMEOUT secondes (onglet fermé, navigateur quitté ou en veille),
+# le serveur s'arrête tout seul : l'application se ferme et libère le port.
+HEARTBEAT_TIMEOUT = 120  # secondes (tolère le throttling des onglets en arrière-plan)
+_last_heartbeat = [time.time()]
+
+
+def _shutdown_watchdog():
+    while True:
+        time.sleep(5)
+        if time.time() - _last_heartbeat[0] > HEARTBEAT_TIMEOUT:
+            os._exit(0)
+
+
+threading.Thread(target=_shutdown_watchdog, daemon=True).start()
+
+
 @app.route('/')
 def index():
     """Sert la page d'accueil"""
+    _last_heartbeat[0] = time.time()
     return render_template('index.html')
+
+
+@app.route('/api/heartbeat', methods=['POST'])
+def api_heartbeat():
+    """Reçu périodiquement tant que la page est ouverte."""
+    _last_heartbeat[0] = time.time()
+    return jsonify({'status': 'alive'})
+
+
+@app.route('/api/quit', methods=['POST'])
+def api_quit():
+    """Fermeture de l'onglet : on arrête le script puis l'application."""
+    manager.stop()
+    threading.Timer(0.2, lambda: os._exit(0)).start()
+    return jsonify({'status': 'quitting'})
 
 
 @app.route('/api/start', methods=['POST'])
@@ -139,4 +173,9 @@ def api_logs():
 if __name__ == '__main__':
     # Ouvre le navigateur automatiquement après 1 seconde
     threading.Timer(1, lambda: webbrowser.open('http://localhost:8000')).start()
-    app.run(host='127.0.0.1', port=8000, debug=False)
+    try:
+        app.run(host='127.0.0.1', port=8000, debug=False, threaded=True)
+    except OSError:
+        # Le port est déjà occupé : une instance tourne encore.
+        # On ne démarre pas en double, on affiche simplement l'interface existante.
+        webbrowser.open('http://localhost:8000')

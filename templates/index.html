@@ -428,6 +428,23 @@
         let isRunning = false;
         const pollInterval = 300;
 
+        // --- Maintien en vie / fermeture automatique de l'application ---
+        // Battement de cœur régulier : tant que la page est ouverte, le
+        // serveur reste vivant.
+        function heartbeat() {
+            fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+        }
+        heartbeat();
+        setInterval(heartbeat, 5000);
+        // Battement immédiat au retour sur l'onglet (après mise en veille).
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') heartbeat();
+        });
+        // Fermeture de l'onglet -> arrêt immédiat de l'application.
+        window.addEventListener('pagehide', () => {
+            navigator.sendBeacon('/api/quit');
+        });
+
         async function startScript() {
             try {
                 await fetch('/api/start', {
