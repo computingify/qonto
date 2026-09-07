@@ -7,11 +7,13 @@ Serveur Flask avec interface web moderne pour lancer des scripts avec interactiv
 from flask import Flask, render_template, jsonify, request
 import subprocess
 import os
+import json
 import threading
 from datetime import datetime
 from queue import Queue, Empty
 import webbrowser
 import time
+import status
 
 app = Flask(__name__, template_folder='templates')
 
@@ -24,11 +26,16 @@ class ScriptManager:
         self.running = False
         self.auto_mode = False
         self.logs = Queue()
+        # État de chaque société : {'level': ..., 'messages': [...]}
+        self.statuses = {}
+        self.statuses_lock = threading.Lock()
     
     def start(self, auto_mode=False):
         """Démarre le script dans un thread séparé"""
         self.running = True
         self.auto_mode = auto_mode
+        with self.statuses_lock:
+            self.statuses = {}
         self.logs.put("▶ Script démarré...")
         thread = threading.Thread(target=self._run, daemon=True)
         thread.start()
@@ -39,29 +46,73 @@ class ScriptManager:
             venv_python = os.path.join(os.path.dirname(__file__), "qontoenv", "bin", "python3")
             script_path = os.path.join(os.path.dirname(__file__), "getTransactionAttachments.py")
             
+            env = dict(os.environ, PYTHONUNBUFFERED="1")
             self.process = subprocess.Popen(
-                [venv_python, script_path, "--noGui"],
+                # -u : sortie non tamponnée, sinon les logs et les statuts
+                # arrivent par blocs de plusieurs kilo-octets.
+                [venv_python, "-u", script_path, "--noGui"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                cwd=os.path.dirname(__file__)
+                cwd=os.path.dirname(__file__),
+                env=env
             )
     
             while self.running and self.process.poll() is None:
                 line = self.process.stdout.readline()
                 if line:
-                    self.logs.put(line.rstrip())
+                    self._consume(line.rstrip())
                     if self.auto_mode:
                         self._handle_auto_response(line)
                 else:
                     time.sleep(0.05)
-            
+
+            # Le processus est terminé : on vide ce qui reste dans le tuyau.
+            if self.process.stdout:
+                for line in self.process.stdout:
+                    self._consume(line.rstrip())
+
+            returncode = self.process.poll()
             self.running = False
-            self.logs.put("✓ Script terminé")
+            if returncode:
+                self._fail_unfinished(f"Le script s'est arrêté (code {returncode})")
+                self.logs.put(f"✗ Script terminé en erreur (code {returncode})")
+            else:
+                self._fail_unfinished("Traitement interrompu avant la fin")
+                self.logs.put("✓ Script terminé")
         except Exception as e:
             self.logs.put(f"✗ Erreur: {str(e)}")
+            self._fail_unfinished(f"Erreur du lanceur : {e}")
             self.running = False
+
+    def _consume(self, line):
+        """Aiguille une ligne : statut structuré ou log classique"""
+        if line.startswith(status.STATUS_PREFIX):
+            try:
+                payload = json.loads(line[len(status.STATUS_PREFIX):])
+            except ValueError:
+                self.logs.put(line)
+                return
+            with self.statuses_lock:
+                self.statuses[payload.get("society", "")] = {
+                    "level": payload.get("level", status.Level.PENDING),
+                    "messages": payload.get("messages", []),
+                }
+        else:
+            self.logs.put(line)
+
+    def _fail_unfinished(self, reason):
+        """Une société encore « en cours » à l'arrêt du script est en échec."""
+        with self.statuses_lock:
+            for society, state in self.statuses.items():
+                if state.get("level") in (status.Level.RUNNING, status.Level.PENDING):
+                    state["level"] = status.Level.ERROR
+                    state["messages"] = (state.get("messages") or []) + [reason]
+
+    def get_statuses(self):
+        with self.statuses_lock:
+            return {k: dict(v) for k, v in self.statuses.items()}
     
     def _handle_auto_response(self, line):
         """Répond automatiquement aux questions du script"""
@@ -70,7 +121,10 @@ class ScriptManager:
     
     def stop(self):
         """Arrête le processus"""
+        was_running = self.running
         self.running = False
+        if was_running:
+            self._fail_unfinished("Arrêt demandé par l'utilisateur")
         if self.process:
             self.process.terminate()
             try:
@@ -166,7 +220,8 @@ def api_logs():
     """Retourne les logs accumulés et l'état du script"""
     return jsonify({
         'logs': manager.get_logs(),
-        'running': manager.running
+        'running': manager.running,
+        'statuses': manager.get_statuses()
     })
 
 

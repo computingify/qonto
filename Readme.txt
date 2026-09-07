@@ -22,6 +22,39 @@ Ajouter / cocher « QontoUpdate », puis relancer l'app.
 Logs de l'app : ~/Library/Logs/QontoUpdate.log
 
 ----------------------------------------
+  Pastilles de statut par société
+----------------------------------------
+Gris    : en attente
+Bleu    : traitement en cours
+Vert    : terminé sans problème
+Orange  : terminé, mais un point à vérifier
+          (zip non copié car déjà présent, transaction sans
+           justificatif à ajouter à la main sur Qonto…)
+Rouge   : échec — le zip est incomplet ou n'a pas été produit
+          (relevé Qonto non récupéré, API injoignable, clé
+           invalide, relevé Bourse Direct absent, copie impossible…)
+
+Dès qu'une société est orange ou rouge, un encadré « Problèmes
+détectés » apparaît sous les pastilles et donne la cause exacte,
+avec le nom de fichier attendu quand il s'agit d'un relevé.
+
+----------------------------------------
+  Relevés de compte
+----------------------------------------
+Les relevés Qonto sont téléchargés automatiquement via l'API
+(endpoint /v2/statements) : plus rien à faire à la main, ni mail,
+ni navigateur, ni dépôt dans ~/Downloads.
+
+Si l'API est injoignable ou si le relevé du mois n'est pas encore
+publié par Qonto, la société passe en ROUGE et le zip n'est pas
+produit. Il n'y a volontairement aucun repli sur ~/Downloads : le
+relevé vient de l'API ou ne vient pas.
+
+Seule exception : le relevé Bourse Direct d'ADN Group, qui n'est
+pas exposé par Qonto. Il reste à télécharger à la main dans
+~/Downloads (pdf_*.pdf).
+
+----------------------------------------
   Lancement manuel (équivalent, Terminal)
 ----------------------------------------
 python3 gui_launcher.py

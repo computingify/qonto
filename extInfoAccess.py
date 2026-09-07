@@ -1,6 +1,10 @@
 import json
 import os
 
+# Le fichier de configuration vit à côté du script, pas dans le répertoire
+# courant : sans cela, le moindre changement de dossier casse la lecture.
+CONFIDENTIAL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "confidential.json")
+
 def getOrganisation(society):
     if(checkIfExist(society)):
         return _get("qonto", society, "organization-slug")
@@ -46,7 +50,7 @@ def checkIfExist(society):
         return False
 
 def _get(generalKey, society, key=""):
-    f = open("confidential.json", 'r')
+    f = open(CONFIDENTIAL_FILE, 'r')
     credential = json.load(f)
     try:
         if key == "":

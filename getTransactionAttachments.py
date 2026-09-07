@@ -6,9 +6,10 @@ import json
 import qonto
 import sys
 import extInfoAccess
+import status
 import subprocess
+import traceback
 from pathlib import Path
-from googleQonto import getLastStatement
 import printElement
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
@@ -50,14 +51,29 @@ def zipfile(dir):
     print(">>>>> Zip the directory", dir)
     shutil.make_archive(dir, "zip", dir)
 
-def manageStatement(dir, lastMonth, type, endedName="compte-principal-*statement.pdf"):
-    path = Path(extInfoAccess.getDownloadDir())
-    
+def manageStatement(dir, lastMonth, orgSlug, report, label="relevé Qonto", endedName="compte-principal-*statement.pdf"):
+    """
+    Déplace un relevé déposé à la main depuis le répertoire de téléchargement
+    vers le répertoire de travail. Ne sert plus qu'à Bourse Direct : les relevés
+    Qonto passent par l'API. Tout échec est remonté dans `report` pour être
+    affiché en rouge dans l'interface, avec le nom de fichier attendu.
+    """
+    downloadDir = extInfoAccess.getDownloadDir()
+    path = Path(downloadDir)
+
     # If it's not the default statement name, we just read the name endedName
     if("compte-principal-*statement.pdf" == endedName):
-        statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{type}-{endedName}')
+        statementFileName = (f'{lastMonth.strftime("%Y-%m")}-{orgSlug}-{endedName}')
     else:
         statementFileName = (f'{endedName}')
+
+    if not path.is_dir():
+        report.error(
+            f"Répertoire de téléchargement introuvable ({label})",
+            downloadDir,
+        )
+        return False
+
     statementFile = list(path.glob(statementFileName))
 
     if statementFile:
@@ -65,10 +81,21 @@ def manageStatement(dir, lastMonth, type, endedName="compte-principal-*statement
             os.mkdir(dir)
         try:
             shutil.move(statementFile[0], dir)
-        except: 
-            pass
+            print(f"Statement {label} moved: {os.path.basename(statementFile[0])}")
+            return True
+        except Exception as e:
+            report.error(
+                f"Déplacement du {label} impossible",
+                f"{os.path.basename(statementFile[0])} ({type(e).__name__}: {e})",
+            )
+            return False
     else:
-        print(f"Statement {type} file isn't present in Download directory")
+        print(f"Statement {orgSlug} file isn't present in Download directory")
+        report.error(
+            f"{label[0].upper()}{label[1:]} introuvable",
+            f"attendu : {statementFileName} dans {downloadDir}",
+        )
+        return False
 
 def buildQonto(dirName, date, society):
     return qonto.Qonto("https://thirdparty.qonto.com/v2/", dirName, date, society)
@@ -88,8 +115,113 @@ def convert_str_to_datetime(str_time):
         return result_datetime
     except ValueError:
         return None
-    
+
+
+def processSociety(society, lastMonth, interactive):
+    """Traite une société et renvoie son rapport d'anomalies."""
+    report = status.Report(society)
+    status.running(society)
+
+    dirName = lastMonth.strftime("%Y_%m_") + society
+    qontoClient = buildQonto(dirName, lastMonth, society)
+
+    # Le relevé est récupéré uniquement via l'API Qonto : aucun repli sur le
+    # dossier de téléchargement, un échec ici est une erreur franche.
+    statementFiles, statementError = qontoClient.downloadStatement(dirName)
+    if statementFiles:
+        for name in statementFiles:
+            print(f"Statement downloaded from Qonto API: {name}")
+    else:
+        report.error("Relevé Qonto non récupéré", statementError)
+
+    if society == Society.ADN_GROUP:
+        # Releve Bourse Direct pour ADN Group
+        manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society), report,
+                        label="relevé Bourse Direct", endedName="pdf_*.pdf")
+        # Rename the file pdf_*.pdf into Relevé_de_compte_Bourse_Direct.pdf
+        bourse_direct_file = list(Path(dirName).glob("pdf_*.pdf"))
+        if bourse_direct_file:
+            new_name = Path(dirName) / "Relevé_de_compte_Bourse_Direct.pdf"
+            bourse_direct_file[0].rename(new_name)
+            print(f"Renamed {bourse_direct_file[0]} to {new_name}")
+        else:
+            print("No file matching 'pdf_*.pdf' found to rename.")
+
+    report.absorb(qontoClient.run())
+
+    if interactive:
+        user_input = input("Do you want to Print all invoice ? (y/N): ").strip().lower()
+        if user_input == 'y':
+            print("Printing...")
+            print(f"dirName = {dirName}")
+            printElement.process(dirName)
+
+    if not os.path.isdir(dirName):
+        report.error(
+            "Aucun fichier à archiver",
+            f"le répertoire {dirName} n'a pas été créé, le zip ne peut pas être généré",
+        )
+        return report
+
+    # Copy zip file localy
+    cpPath = extInfoAccess.getZipFileDestination(society)
+    destinationZip = os.path.join(cpPath, os.path.basename(dirName) + '.zip')
+    doCopy = True
+    print("path zip: ", destinationZip)
+    if os.path.exists(destinationZip):
+        if interactive:
+            user_input = input(f"The file {os.path.basename(dirName)}.zip already exists. Do you want to override it ? (y/N): ").strip().lower()
+            doCopy = (user_input == 'y')
+        else:
+            doCopy = False
+        if not doCopy:
+            print("File not copied. User choose to don't override.")
+            report.warning(
+                "Zip non copié : un fichier du même nom existe déjà",
+                destinationZip,
+            )
+
+    zipfile(dirName)
+
+    if doCopy:
+        try:
+            shutil.copy(dirName + '.zip', cpPath)
+            print("Zip file is saved: ", str(cpPath))
+        except Exception as e:
+            report.error(
+                "Copie du zip vers le dossier de destination impossible",
+                f"{cpPath} ({type(e).__name__}: {e})",
+            )
+        else:
+            openFileExplorer(cpPath)
+
+    # Remove tmp files
+    try:
+        shutil.rmtree(dirName)
+    except FileNotFoundError:
+        print(f"Directory {dirName} does not exist, skipping removal.")
+    except Exception as e:
+        print(f"An error occurred while removing directory {dirName}: {e}")
+
+    return report
+
+
+def printSummary(reports):
+    """Récapitulatif final lisible dans les logs."""
+    print('============ RÉCAPITULATIF ============')
+    for report in reports:
+        if report.level == status.Level.OK:
+            print(f"  ✓ {report.society} : OK")
+        else:
+            marker = "✗" if report.level == status.Level.ERROR else "!"
+            print(f"  {marker} {report.society} : {len(report.errors)} erreur(s), {len(report.warnings)} avertissement(s)")
+            for message in report.messages:
+                print(f"      - {message}")
+
+
 def main(argv):
+
+    interactive = not ("--noGui" in argv)
 
     if "update" in argv:
         print('============ LAUNCH only UPDATE ==============')
@@ -98,6 +230,9 @@ def main(argv):
         buildQonto(dirName, date, Society.ADN_DEV).addMissingAttachment()
     else:
         print('============ LAUNCH the COMPLET generation ==============')
+        for society in Society:
+            status.emit(society, status.Level.PENDING)
+
         lastMonth = getLastMonthDate()
         strLastMonth = lastMonth.strftime("%Y_%m")
         user_input = input(f"Will run on date {strLastMonth} ? (Y/n): ").strip().lower()
@@ -105,71 +240,36 @@ def main(argv):
             user_input = input(f"Enter a date on format YYYY_MM: ").strip().lower()
             lastMonth = convert_str_to_datetime(user_input)
             if not lastMonth:
+                status.emit(status.GLOBAL, status.Level.ERROR,
+                            ["Date invalide, format attendu AAAA_MM"])
                 return 1
             print(lastMonth)
-            
-        if not("--noGui" in argv):
+
+        if interactive:
             print(">>>>> Will get all transactions attachments for ", lastMonth.strftime("%Y_%m"))
-            isError = getLastStatement(Society.ADN_DEV)
-            if isError == True:
-                return 1
-            
-            # Open web browser to download Bourse direct statement
+            # Les relevés Qonto sont téléchargés via l'API par chaque société.
+            # Seul Bourse Direct reste manuel : il n'est pas exposé par Qonto.
             webbrowser.open("https://www.boursedirect.fr/fr/page/releves")
 
         # Handle all society
+        reports = []
         for society in Society:
             print(f'>>>>>>>>>>>> START PROCESS for {society} <<<<<<<<<<<<')
-            dirName = lastMonth.strftime("%Y_%m_") + society
-            manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society))
-            if society == Society.ADN_GROUP:
-                manageStatement(dirName, lastMonth, extInfoAccess.getOrganisation(society), "pdf_*.pdf") # Releve Bourse Direct pour ADN Group
-                # Rename the file pdf_*.pdf into Relevé_de_compte_Bourse_Direct.pdf
-                bourse_direct_file = list(Path(dirName).glob("pdf_*.pdf"))
-                if bourse_direct_file:
-                    new_name = Path(dirName) / "Relevé_de_compte_Bourse_Direct.pdf"
-                    bourse_direct_file[0].rename(new_name)
-                    print(f"Renamed {bourse_direct_file[0]} to {new_name}")
-                else:
-                    print("No file matching 'pdf_*.pdf' found to rename.")
-                
-            buildQonto(dirName, lastMonth, society).run()
-
-            user_input = input("Do you want to Print all invoice ? (y/N): ").strip().lower()
-            if user_input == 'y':
-                print("Printing...")
-                print(f"dirName = {dirName}")
-                printElement.process(dirName)
-
-            # Copy zip file localy
-            cpPath = extInfoAccess.getZipFileDestination(society)
-            doCopy = True
-            print("path zip: ", os.path.join(cpPath, os.path.basename(dirName) + '.zip'))
-            if os.path.exists(os.path.join(cpPath, os.path.basename(dirName) + '.zip')):
-                user_input = input(f"The file {os.path.basename(dirName)}.zip already exists. Do you want to override it ? (y/N): ").strip().lower()
-                if user_input == 'y':
-                    # Enable the copy operation
-                    doCopy = True
-                else:
-                    doCopy = False
-                    print("File not copied. User choose to don't override.")
-            zipfile(dirName)
-            if doCopy:
-                print("Zip file is saved: ", str(cpPath))
-                shutil.copy(dirName + '.zip', cpPath)
-
-            openFileExplorer(cpPath)
-
-            # Remove tmp files
             try:
-                shutil.rmtree(dirName)
-            except FileNotFoundError:
-                print(f"Directory {dirName} does not exist, skipping removal.")
+                report = processSociety(society, lastMonth, interactive)
             except Exception as e:
-                print(f"An error occurred while removing directory {dirName}: {e}")
-            
+                report = status.Report(society)
+                report.error(
+                    "Erreur inattendue pendant le traitement",
+                    f"{type(e).__name__}: {e}",
+                )
+                traceback.print_exc()
+            report.emit()
+            reports.append(report)
             print(f'======= PROCESS ended for {society} =======')
-        
+
+        printSummary(reports)
+
         # TODO send zip file by mail to ANC2
         # TODO Filter on qonto transaction to get only current month
         # TODO Oauth sur compte Qonto => Impossible because needs to register the application to Qonto

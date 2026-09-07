@@ -343,18 +343,112 @@
             font-family: Arial, sans-serif;
         }
 
-        /* Style par défaut du rond (gris) */
+        /* Style par défaut du rond (gris = en attente) */
         .status-circle {
             width: 15px;
             height: 15px;
             border-radius: 50%;
-            background-color: gray; 
-            transition: background-color 0.3s; /* Transition pour un effet visuel doux */
+            background-color: gray;
+            flex-shrink: 0;
+            transition: background-color 0.3s, box-shadow 0.3s;
         }
-        
-        /* Classe pour la couleur verte, à activer avec JavaScript */
-        .status-green {
-            background-color: rgb(30, 227, 30) !important; 
+
+        /* Un traitement est en cours pour cette société */
+        .status-circle.status-running {
+            background-color: #00d4ff;
+            box-shadow: 0 0 10px #00d4ff;
+            animation: pulse 1s infinite;
+        }
+
+        /* Tout s'est bien passé */
+        .status-circle.status-ok {
+            background-color: rgb(30, 227, 30);
+            box-shadow: 0 0 8px rgba(30, 227, 30, 0.6);
+        }
+
+        /* Le zip est produit mais quelque chose mérite un contrôle */
+        .status-circle.status-warn {
+            background-color: #ffb020;
+            box-shadow: 0 0 8px rgba(255, 176, 32, 0.6);
+        }
+
+        /* Échec : le zip est incomplet ou absent */
+        .status-circle.status-error {
+            background-color: #ff4757;
+            box-shadow: 0 0 10px rgba(255, 71, 87, 0.7);
+        }
+
+        .company-status.has-issue {
+            cursor: help;
+        }
+
+        .company-status.status-error > span:last-child {
+            color: #ff6b78;
+            font-weight: 600;
+        }
+
+        .company-status.status-warn > span:last-child {
+            color: #ffb020;
+            font-weight: 600;
+        }
+
+        /* Panneau détaillant la cause de chaque problème */
+        .issues-card.hidden {
+            display: none;
+        }
+
+        .issue-group {
+            border-left: 3px solid #ff4757;
+            padding: 10px 0 10px 12px;
+            margin-bottom: 12px;
+            background: #1c1220;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .issue-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .issue-group.warn {
+            border-left-color: #ffb020;
+            background: #1e1a11;
+        }
+
+        .issue-society {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ff6b78;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .issue-group.warn .issue-society {
+            color: #ffb020;
+        }
+
+        .issue-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .issue-list li {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #d8d8d8;
+            padding-left: 14px;
+            position: relative;
+            word-break: break-word;
+        }
+
+        .issue-list li::before {
+            content: '›';
+            position: absolute;
+            left: 0;
+            color: #888;
         }
 
         @media (max-width: 600px) {
@@ -417,6 +511,12 @@
             </div>
         </div>
 
+        <!-- Problèmes détectés -->
+        <div class="card issues-card hidden" id="issuesCard">
+            <div class="section-title" id="issuesTitle">Problèmes détectés</div>
+            <div id="issuesList"></div>
+        </div>
+
         <!-- Logs -->
         <div class="card">
             <div class="section-title">Logs</div>
@@ -453,6 +553,8 @@
                     body: JSON.stringify({ auto: true })
                 });
                 isRunning = true;
+                applyStatuses({});
+                document.getElementById('logsContainer').innerHTML = '';
                 updateUI();
                 poll();
             } catch (err) {
@@ -465,6 +567,7 @@
                 await fetch('/api/stop', { method: 'POST' });
                 isRunning = false;
                 updateUI();
+                poll();
             } catch (err) {
                 console.error('Erreur:', err);
             }
@@ -479,19 +582,18 @@
                 data.logs.forEach(log => {
                     const line = document.createElement('div');
                     line.className = 'log-line';
-                    
-                    if (log.includes('✗')) line.classList.add('error');
-                    else if (log.includes('?')) line.classList.add('info');
-                    else if (log.includes('======= PROCESS ended for adn-dev =======')) setStatusGreen("adn-dev-status");
-                    else if (log.includes('======= PROCESS ended for adn-group   =======')) setStatusGreen("adn-group-status");
-                    else if (log.includes('======= PROCESS ended for solio =======')) setStatusGreen("solio-status");
+
+                    if (log.includes('✗') || log.startsWith('[ERREUR]')) line.classList.add('error');
+                    else if (log.startsWith('[ATTENTION]') || log.includes('?')) line.classList.add('info');
 
                     line.textContent = log;
                     container.appendChild(line);
                 });
 
                 if (data.logs.length > 0) container.scrollTop = container.scrollHeight;
-                
+
+                applyStatuses(data.statuses || {});
+
                 isRunning = data.running;
                 updateUI();
 
@@ -501,13 +603,102 @@
             }
         }
 
-        // Fonction pour mettre à jour l'état d'un rond spécifique
-        function setStatusGreen(id) {
-            const circle = document.getElementById(id);
-            if (circle) {
-                // Ajoute la classe 'status-green' qui écrase la couleur grise
-                circle.classList.add('status-green'); 
+        // Les sociétés suivies, dans l'ordre de traitement du script.
+        const SOCIETIES = {
+            'adn-dev': 'ADN-Dev',
+            'adn-group': 'ADN-Group',
+            'solio': 'Solio'
+        };
+
+        const LEVEL_CLASSES = ['status-running', 'status-ok', 'status-warn', 'status-error'];
+
+        // Applique l'état renvoyé par le serveur : couleur de la pastille et
+        // panneau détaillant la cause exacte de chaque problème.
+        function applyStatuses(statuses) {
+            Object.keys(SOCIETIES).forEach(society => {
+                const state = statuses[society];
+                const circle = document.getElementById(society + '-status');
+                const row = circle ? circle.parentElement : null;
+                if (!circle) return;
+
+                circle.classList.remove(...LEVEL_CLASSES);
+                if (row) row.classList.remove('status-warn', 'status-error', 'has-issue');
+
+                if (!state) {
+                    circle.title = 'En attente';
+                    return;
+                }
+
+                const level = state.level;
+                if (level !== 'pending') circle.classList.add('status-' + level);
+
+                const messages = state.messages || [];
+                if (level === 'error' || level === 'warn') {
+                    if (row) row.classList.add('status-' + level, 'has-issue');
+                    circle.title = messages.join('\n');
+                } else {
+                    circle.title = level === 'ok' ? 'Terminé sans problème'
+                                 : level === 'running' ? 'Traitement en cours…'
+                                 : 'En attente';
+                }
+            });
+
+            renderIssues(statuses);
+        }
+
+        // Liste lisible des problèmes, société par société.
+        function renderIssues(statuses) {
+            const card = document.getElementById('issuesCard');
+            const list = document.getElementById('issuesList');
+            const title = document.getElementById('issuesTitle');
+
+            const groups = [];
+            // Les problèmes généraux (Gmail, date...) d'abord, puis les sociétés.
+            const order = ['_global_'].concat(Object.keys(SOCIETIES));
+            order.forEach(key => {
+                const state = statuses[key];
+                if (!state || !state.messages || !state.messages.length) return;
+                if (state.level !== 'error' && state.level !== 'warn') return;
+                groups.push({
+                    name: key === '_global_' ? 'Général' : (SOCIETIES[key] || key),
+                    level: state.level,
+                    messages: state.messages
+                });
+            });
+
+            list.innerHTML = '';
+            if (!groups.length) {
+                card.classList.add('hidden');
+                return;
             }
+
+            const errorCount = groups.filter(g => g.level === 'error').length;
+            title.textContent = errorCount
+                ? `Problèmes détectés (${errorCount} société(s) en échec)`
+                : 'Points à vérifier';
+
+            groups.forEach(group => {
+                const block = document.createElement('div');
+                block.className = 'issue-group' + (group.level === 'warn' ? ' warn' : '');
+
+                const head = document.createElement('div');
+                head.className = 'issue-society';
+                head.textContent = (group.level === 'error' ? '✗ ' : '⚠ ') + group.name;
+                block.appendChild(head);
+
+                const ul = document.createElement('ul');
+                ul.className = 'issue-list';
+                group.messages.forEach(message => {
+                    const li = document.createElement('li');
+                    li.textContent = message;
+                    ul.appendChild(li);
+                });
+                block.appendChild(ul);
+
+                list.appendChild(block);
+            });
+
+            card.classList.remove('hidden');
         }
 
         function updateUI() {
