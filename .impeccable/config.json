@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "specs/001-justificatifs-amazon/resume.html"
+        ],
+        "createdAt": "2026-11-09T16:47:28.343Z",
+        "reason": "Claude: .stage is a mock window frame showing QontoUpdate's existing card layout inside a spec document; transaction rows already flattened to dividers"
+      }
+    ]
+  }
+}
