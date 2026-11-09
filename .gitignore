@@ -9,3 +9,5 @@ Qonto.code-workspace
 __pycache__/
 .DS_Store
 QontoUpdate.app/**
+amazon-profile/
+.pytest_cache/

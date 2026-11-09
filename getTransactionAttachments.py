@@ -4,6 +4,7 @@ import shutil
 import os
 import json
 import qonto
+import amazon
 import sys
 import extInfoAccess
 import status
@@ -107,6 +108,29 @@ def openFileExplorer(path):
         subprocess.run(['open', '-R', path])
     except Exception as e:
         print(f"An error occurred: {e}")
+
+def parseMonthArg(argv, today=None):
+    """
+    Mois demandé par l'interface (spec 001, F6) : --month AAAA_MM.
+    Renvoie (date, None), (None, None) sans l'option, ou (None, message) si le
+    mois est invalide, en cours ou futur : le relevé Qonto d'un mois n'est
+    publié qu'au début du mois suivant (arbitrage A6).
+    """
+    if "--month" not in argv:
+        return None, None
+    index = argv.index("--month")
+    value = argv[index + 1] if index + 1 < len(argv) else ""
+    requested = convert_str_to_datetime(value)
+    if not requested:
+        return None, f"Mois invalide « {value} », format attendu AAAA_MM"
+    today = today or datetime.now()
+    if (requested.year, requested.month) >= (today.year, today.month):
+        label = amazon.month_label(requested.year, requested.month)
+        return None, (f"Impossible de générer {label} : le relevé Qonto du mois "
+                      "n'est publié qu'au début du mois suivant")
+    # Dernier jour du mois, comme getLastMonthDate().
+    return requested + relativedelta(months=1) - timedelta(days=1), None
+
 
 def convert_str_to_datetime(str_time):
     try:
@@ -233,9 +257,14 @@ def main(argv):
         for society in Society:
             status.emit(society, status.Level.PENDING)
 
-        lastMonth = getLastMonthDate()
+        requestedMonth, monthError = parseMonthArg(argv)
+        if monthError:
+            print(f"ERROR {monthError}")
+            status.emit(status.GLOBAL, status.Level.ERROR, [monthError])
+            return 1
+        lastMonth = requestedMonth or getLastMonthDate()
         strLastMonth = lastMonth.strftime("%Y_%m")
-        user_input = input(f"Will run on date {strLastMonth} ? (Y/n): ").strip().lower()
+        user_input = "y" if requestedMonth else input(f"Will run on date {strLastMonth} ? (Y/n): ").strip().lower()
         if user_input == 'n':
             user_input = input(f"Enter a date on format YYYY_MM: ").strip().lower()
             lastMonth = convert_str_to_datetime(user_input)
@@ -268,6 +297,7 @@ def main(argv):
             reports.append(report)
             print(f'======= PROCESS ended for {society} =======')
 
+        amazon.close_browser()
         printSummary(reports)
 
         # TODO send zip file by mail to ANC2

@@ -55,6 +55,26 @@ pas exposé par Qonto. Il reste à télécharger à la main dans
 ~/Downloads (pdf_*.pdf).
 
 ----------------------------------------
+  Mois à générer
+----------------------------------------
+Menu « Mois à générer » dans Contrôles : par défaut le mois précédent.
+Le mois en cours est refusé (le relevé Qonto n'est publié qu'au début
+du mois suivant). En Terminal : --month AAAA_MM.
+
+----------------------------------------
+  Justificatifs Amazon (spec 001)
+----------------------------------------
+Avant la récupération des justificatifs, l'app cherche les transactions
+Amazon sans justificatif du mois choisi, télécharge les factures sur
+amazon.fr (Google Chrome, profil dédié dans amazon-profile/) et joint
+celle dont la « Référence de paiement » et le montant correspondent.
+Facture partielle, absente ou illisible : une carte « Décision Amazon »
+s'affiche et l'app attend la réponse. Les transactions d'autres mois
+sont seulement signalées.
+Première fois (ou session expirée) : une fenêtre Chrome s'ouvre sur la
+connexion Amazon, se connecter dedans, l'app reprend seule.
+
+----------------------------------------
   Lancement manuel (équivalent, Terminal)
 ----------------------------------------
 python3 gui_launcher.py

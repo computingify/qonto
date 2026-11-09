@@ -14,6 +14,7 @@ from queue import Queue, Empty
 import webbrowser
 import time
 import status
+import decision
 
 app = Flask(__name__, template_folder='templates')
 
@@ -29,13 +30,22 @@ class ScriptManager:
         # État de chaque société : {'level': ..., 'messages': [...]}
         self.statuses = {}
         self.statuses_lock = threading.Lock()
+        self.month = None
+        # Décision Amazon en attente de réponse (spec 001) et ligne « Amazon »
+        # de chaque société.
+        self.decision = None
+        self.amazon = {}
+        self.stdin_lock = threading.Lock()
     
-    def start(self, auto_mode=False):
+    def start(self, auto_mode=False, month=None):
         """Démarre le script dans un thread séparé"""
         self.running = True
         self.auto_mode = auto_mode
+        self.month = month
         with self.statuses_lock:
             self.statuses = {}
+            self.decision = None
+            self.amazon = {}
         self.logs.put("▶ Script démarré...")
         thread = threading.Thread(target=self._run, daemon=True)
         thread.start()
@@ -50,7 +60,8 @@ class ScriptManager:
             self.process = subprocess.Popen(
                 # -u : sortie non tamponnée, sinon les logs et les statuts
                 # arrivent par blocs de plusieurs kilo-octets.
-                [venv_python, "-u", script_path, "--noGui"],
+                [venv_python, "-u", script_path, "--noGui"]
+                + (["--month", self.month] if self.month else []),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -62,8 +73,8 @@ class ScriptManager:
             while self.running and self.process.poll() is None:
                 line = self.process.stdout.readline()
                 if line:
-                    self._consume(line.rstrip())
-                    if self.auto_mode:
+                    structured = self._consume(line.rstrip())
+                    if self.auto_mode and not structured:
                         self._handle_auto_response(line)
                 else:
                     time.sleep(0.05)
@@ -72,6 +83,8 @@ class ScriptManager:
             if self.process.stdout:
                 for line in self.process.stdout:
                     self._consume(line.rstrip())
+            with self.statuses_lock:
+                self.decision = None
 
             returncode = self.process.poll()
             self.running = False
@@ -87,7 +100,22 @@ class ScriptManager:
             self.running = False
 
     def _consume(self, line):
-        """Aiguille une ligne : statut structuré ou log classique"""
+        """Aiguille une ligne : statut, décision, ligne Amazon ou log classique.
+        Renvoie True pour une ligne structurée (le mode auto n'y répond pas)."""
+        for prefix, attr in ((decision.DECISION_PREFIX, "decision"), (decision.AMAZON_PREFIX, "amazon")):
+            if line.startswith(prefix):
+                try:
+                    payload = json.loads(line[len(prefix):])
+                except ValueError:
+                    self.logs.put(line)
+                    return False
+                with self.statuses_lock:
+                    if attr == "decision":
+                        self.decision = payload
+                        self.logs.put(f"⏸ En attente de ta décision pour {len(payload.get('items', []))} transaction(s) Amazon")
+                    else:
+                        self.amazon[payload.get("society", "")] = payload.get("text", "")
+                return True
         if line.startswith(status.STATUS_PREFIX):
             try:
                 payload = json.loads(line[len(status.STATUS_PREFIX):])
@@ -99,8 +127,10 @@ class ScriptManager:
                     "level": payload.get("level", status.Level.PENDING),
                     "messages": payload.get("messages", []),
                 }
+            return True
         else:
             self.logs.put(line)
+            return False
 
     def _fail_unfinished(self, reason):
         """Une société encore « en cours » à l'arrêt du script est en échec."""
@@ -113,11 +143,33 @@ class ScriptManager:
     def get_statuses(self):
         with self.statuses_lock:
             return {k: dict(v) for k, v in self.statuses.items()}
+
+    def get_decision(self):
+        with self.statuses_lock:
+            return self.decision
+
+    def get_amazon(self):
+        with self.statuses_lock:
+            return dict(self.amazon)
+
+    def answer_decision(self, decision_id, answers):
+        """Renvoie au script les choix de la carte de décision Amazon."""
+        with self.statuses_lock:
+            if not self.decision or self.decision.get("id") != decision_id:
+                return False
+            self.decision = None
+        self._write(decision.answer_line(decision_id, answers))
+        return True
+
+    def _write(self, text):
+        if self.process and self.running:
+            with self.stdin_lock:
+                self.process.stdin.write(text + "\n")
+                self.process.stdin.flush()
     
     def _handle_auto_response(self, line):
         """Répond automatiquement aux questions du script"""
-        self.process.stdin.write("\n")
-        self.process.stdin.flush()
+        self._write("")
     
     def stop(self):
         """Arrête le processus"""
@@ -134,9 +186,7 @@ class ScriptManager:
     
     def send_answer(self, answer):
         """Envoie une réponse au stdin du processus"""
-        if self.process and self.running:
-            self.process.stdin.write(answer + "\n")
-            self.process.stdin.flush()
+        self._write(answer)
     
     def get_logs(self):
         """Récupère tous les logs en attente"""
@@ -196,7 +246,13 @@ def api_quit():
 def api_start():
     """Lance le script avec ou sans mode automatique"""
     data = request.json or {}
-    manager.start(auto_mode=data.get('auto', False))
+    month = data.get('month')
+    if month is not None and not (isinstance(month, str) and len(month) == 7 and month[4] == '_'
+                                  and month[:4].isdigit() and month[5:].isdigit()):
+        return jsonify({'status': 'refused', 'error': 'Mois invalide, format attendu AAAA_MM'}), 400
+    if manager.running:
+        return jsonify({'status': 'refused', 'error': 'Un traitement est déjà en cours'}), 409
+    manager.start(auto_mode=data.get('auto', False), month=month)
     return jsonify({'status': 'started'})
 
 
@@ -215,13 +271,31 @@ def api_answer():
     return jsonify({'status': 'answered'})
 
 
+@app.route('/api/decision', methods=['POST'])
+def api_decision():
+    """Réponse à la carte « Décision Amazon » (spec 001)."""
+    data = request.json or {}
+    pending = manager.get_decision()
+    if not pending or pending.get('id') != data.get('id'):
+        return jsonify({'status': 'refused', 'error': 'Aucune décision en attente'}), 409
+    answers = data.get('answers') or {}
+    missing = [item for item in pending.get('items', [])
+               if answers.get(item['id']) not in item.get('choices', [])]
+    if missing:
+        return jsonify({'status': 'refused', 'missing': [item['id'] for item in missing]}), 400
+    manager.answer_decision(pending['id'], answers)
+    return jsonify({'status': 'answered'})
+
+
 @app.route('/api/logs', methods=['GET'])
 def api_logs():
     """Retourne les logs accumulés et l'état du script"""
     return jsonify({
         'logs': manager.get_logs(),
         'running': manager.running,
-        'statuses': manager.get_statuses()
+        'statuses': manager.get_statuses(),
+        'decision': manager.get_decision(),
+        'amazon': manager.get_amazon(),
     })
 
 
