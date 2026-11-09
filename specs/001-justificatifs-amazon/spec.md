@@ -1,6 +1,6 @@
 # Spec 001 — Justificatifs Amazon automatiques dans QontoUpdate
 
-Statut : **arbitrages A1→A5 tranchés le 09/11/2026**, A6 et feu vert en attente. Résumé de décision : `resume.html`, à côté.
+Statut : **arbitrages A1→A6 tranchés et feu vert donné le 09/11/2026**. Résumé de décision : `resume.html`, à côté.
 
 ## Constat
 
@@ -132,9 +132,9 @@ récapitulatif, avec son lien Amazon, comme aujourd'hui.
 - Le bouton « Valider » reste désactivé tant qu'une transaction n'a pas de
   choix. Si on clique quand même, la carte indique laquelle manque.
 
-Technique : le script émet une ligne `QONTO_DECISION {json}` (sur le modèle de
+Technique : le script émet une ligne `@@DECISION|{json}` (sur le modèle de
 `status.STATUS_PREFIX`), puis attend la réponse sur stdin. Le lanceur Flask
-l'expose dans `/api/logs` et la réponse revient par `/api/answer`.
+l'expose dans `/api/logs` et la réponse revient par `/api/decision` (ligne `@@ANSWER|{json}` sur stdin).
 
 ### F6 — Choisir le mois à générer
 
@@ -188,11 +188,7 @@ Tranchés le 09/11/2026 :
 - **A4** — Sans réponse : **attendre sans limite**.
 - **A5** — Remboursements : **chercher l'avoir et le joindre**, avec la même règle
   que les factures (référence de paiement, puis montant ; sinon décision).
-
-En attente :
-
-- **A6** — Mois en cours : **refuser la génération** (proposé) ou l'autoriser
-  en ne faisant que l'étape Amazon, sans zip ni relevé ?
+- **A6** — Mois en cours : **refuser la génération**.
 
 ## Tests (chaque élément de spec testé)
 

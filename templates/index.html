@@ -468,6 +468,39 @@
                 height: 240px;
             }
         }
+
+        /* --- Spec 001 : mois à générer, ligne Amazon, décision Amazon --- */
+        .month-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 13px; color: #9aa3c0; }
+        .month-row select { font: inherit; font-size: 14px; color: #e0e0e0; background: #0f1424; border: 1px solid #1e2749; border-radius: 8px; padding: 8px 10px; min-width: 210px; }
+        .month-row select:focus-visible { outline: 2px solid #00d4ff; outline-offset: 2px; }
+        .month-msg { font-size: 13px; color: #ff5c6c; margin: -4px 0 12px; }
+        .month-msg:empty { display: none; }
+        .btn-start[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+        .amz-lines { margin-top: 14px; padding-top: 12px; border-top: 1px solid #1e2749; font-size: 13px; color: #9aa3c0; font-variant-numeric: tabular-nums; }
+        .amz-lines:empty { display: none; }
+        .amz-lines div + div { margin-top: 4px; }
+        .amz-lines b { color: #e0e0e0; font-weight: 600; }
+        .decision-card { border-color: #2f6fb3; box-shadow: 0 10px 28px -14px rgba(0, 0, 0, .6); }
+        .decision-card.hidden { display: none; }
+        .d-intro { font-size: 13px; color: #9aa3c0; margin: -4px 0 8px; }
+        .tx { border-top: 1px solid #1e2749; padding: 14px 10px; margin: 0 -10px; border-radius: 6px; transition: background-color .2s; }
+        .tx.missing { background: rgba(255, 92, 108, .08); }
+        .tx.missing .amt::after { content: " · choix manquant"; font-size: 12px; font-weight: 600; color: #ff5c6c; }
+        .tx-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+        .amt { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .tx-date { color: #9aa3c0; font-size: 13px; font-variant-numeric: tabular-nums; }
+        .tx-order { font: 12px ui-monospace, Menlo, monospace; color: #9aa3c0; margin-top: 2px; }
+        .tx-cause { margin-top: 8px; font-size: 13px; color: #ffad33; }
+        .tx-cause.missing { color: #ff5c6c; }
+        .tx-links { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 13px; }
+        .tx-links a, .issue-list a { color: #00d4ff; text-underline-offset: 3px; }
+        .tx-choices { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+        .tx-choices button { background: #1c2340; color: #e0e0e0; border: 1px solid #1e2749; padding: 8px 11px; font-weight: 500; font-size: 13px; text-transform: none; letter-spacing: 0; }
+        .tx-choices button[aria-pressed="true"] { background: #0f3a63; border-color: #00d4ff; color: #fff; }
+        .d-foot { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+        .btn-decide { background: #22d39a; color: #062a1d; white-space: nowrap; flex: none; }
+        .btn-decide[aria-disabled="true"] { opacity: .45; }
+        .d-refuse { font-size: 13px; color: #ff5c6c; }
     </style>
 </head>
 <body>
@@ -480,6 +513,8 @@
         <!-- Boutons de contrôle -->
         <div class="card">
             <div class="section-title">Contrôles</div>
+            <label class="month-row"><span>Mois à générer</span><select id="monthSelect"></select></label>
+            <p class="month-msg" id="monthMsg" role="alert"></p>
             <div class="controls">
                 <button class="btn-start" id="startBtn" onclick="startScript()">▶ Démarrer</button>
                 <button class="btn-stop" id="stopBtn" onclick="stopScript()" disabled>⏹ Arrêter</button>
@@ -509,7 +544,19 @@
                     <span>Solio</span>
                 </div>
             </div>
+            <div class="amz-lines" id="amzLines" aria-live="polite"></div>
         </div>
+
+        <!-- Décision Amazon (spec 001) -->
+        <section class="card decision-card hidden" id="decisionCard" aria-labelledby="decisionTitle">
+            <div class="section-title" id="decisionTitle">Décision Amazon</div>
+            <p class="d-intro" id="decisionIntro"></p>
+            <div id="decisionList"></div>
+            <div class="d-foot">
+                <button class="btn-decide" id="decideBtn" aria-disabled="true">Valider et continuer</button>
+                <span class="d-refuse" id="decisionRefuse" role="alert"></span>
+            </div>
+        </section>
 
         <!-- Problèmes détectés -->
         <div class="card issues-card hidden" id="issuesCard">
@@ -545,13 +592,47 @@
             navigator.sendBeacon('/api/quit');
         });
 
+        // --- Mois à générer (spec 001, F6) ---
+        // 12 derniers mois + le mois en cours, refusé (A6) : le relevé Qonto
+        // d'un mois n'est publié qu'au début du mois suivant.
+        const MONTHS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+        const monthSelect = document.getElementById('monthSelect');
+        (function buildMonths() {
+            const now = new Date();
+            for (let i = 0; i <= 12; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const option = document.createElement('option');
+                option.value = d.getFullYear() + '_' + String(d.getMonth() + 1).padStart(2, '0');
+                option.textContent = MONTHS[d.getMonth()] + ' ' + d.getFullYear() + (i === 0 ? ' (en cours)' : '');
+                if (i === 1) option.selected = true;
+                monthSelect.appendChild(option);
+            }
+        })();
+        const monthLabel = () => monthSelect.selectedOptions[0].textContent.replace(' (en cours)', '');
+        const isCurrentMonth = () => monthSelect.selectedIndex === 0;
+        function checkMonth() {
+            document.getElementById('startBtn').setAttribute('aria-disabled', String(isCurrentMonth()));
+            document.getElementById('monthMsg').textContent = isCurrentMonth()
+                ? `Impossible de générer ${monthLabel()} : le relevé Qonto du mois n'est publié qu'au début du mois suivant.`
+                : '';
+        }
+        monthSelect.addEventListener('change', checkMonth);
+
         async function startScript() {
+            if (isCurrentMonth()) { checkMonth(); monthSelect.focus(); return; }
             try {
-                await fetch('/api/start', {
+                const response = await fetch('/api/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ auto: true })
+                    body: JSON.stringify({ auto: true, month: monthSelect.value })
                 });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    document.getElementById('monthMsg').textContent = data.error || 'Démarrage refusé';
+                    return;
+                }
+                document.getElementById('amzLines').innerHTML = '';
+                hideDecision();
                 isRunning = true;
                 applyStatuses({});
                 document.getElementById('logsContainer').innerHTML = '';
@@ -593,6 +674,8 @@
                 if (data.logs.length > 0) container.scrollTop = container.scrollHeight;
 
                 applyStatuses(data.statuses || {});
+                renderAmazon(data.amazon || {});
+                renderDecision(data.decision);
 
                 isRunning = data.running;
                 updateUI();
@@ -690,7 +773,7 @@
                 ul.className = 'issue-list';
                 group.messages.forEach(message => {
                     const li = document.createElement('li');
-                    li.textContent = message;
+                    appendLinked(li, message);
                     ul.appendChild(li);
                 });
                 block.appendChild(ul);
@@ -701,9 +784,146 @@
             card.classList.remove('hidden');
         }
 
+        // Texte avec liens cliquables (les problèmes Amazon portent l'URL de la commande).
+        function appendLinked(parent, text) {
+            text.split(/(https:\/\/\S+)/).forEach(part => {
+                if (/^https:\/\//.test(part)) {
+                    const a = document.createElement('a');
+                    a.href = part; a.target = '_blank'; a.rel = 'noopener';
+                    a.textContent = part.includes('order-details') ? 'voir la commande sur Amazon' : part;
+                    parent.appendChild(a);
+                } else {
+                    parent.appendChild(document.createTextNode(part));
+                }
+            });
+        }
+
+        // --- Ligne « Amazon » par société ---
+        function renderAmazon(amazon) {
+            const box = document.getElementById('amzLines');
+            box.innerHTML = '';
+            Object.keys(SOCIETIES).forEach(society => {
+                if (!amazon[society]) return;
+                const line = document.createElement('div');
+                line.append('Amazon · ' + SOCIETIES[society] + ' : ');
+                const b = document.createElement('b');
+                b.textContent = amazon[society];
+                line.appendChild(b);
+                box.appendChild(line);
+            });
+        }
+
+        // --- Carte « Décision Amazon » (spec 001, F3/F5) ---
+        let shownDecision = null;
+        const answers = {};
+
+        function hideDecision() {
+            shownDecision = null;
+            document.getElementById('decisionCard').classList.add('hidden');
+        }
+
+        function renderDecision(pending) {
+            if (!pending) { if (shownDecision) hideDecision(); return; }
+            if (shownDecision === pending.id) return;
+            shownDecision = pending.id;
+            Object.keys(answers).forEach(k => delete answers[k]);
+            const society = SOCIETIES[pending.society] || pending.society;
+            document.getElementById('decisionTitle').textContent = `Décision Amazon · ${society} · ${pending.period}`;
+            const n = pending.items.length;
+            document.getElementById('decisionIntro').textContent =
+                `${n} transaction${n > 1 ? 's' : ''} de ${pending.period} ${n > 1 ? 'ont' : 'a'} besoin de toi.`;
+            document.getElementById('decisionRefuse').textContent = '';
+            const list = document.getElementById('decisionList');
+            list.innerHTML = '';
+            pending.items.forEach(item => {
+                const tx = document.createElement('div');
+                tx.className = 'tx'; tx.dataset.id = item.id;
+                tx.innerHTML = `
+                    <div class="tx-top"><span class="amt"></span><span class="tx-date"></span></div>
+                    <div class="tx-order"></div>
+                    <div class="tx-cause"></div>
+                    <div class="tx-links"></div>
+                    <div class="tx-choices" role="group"></div>`;
+                tx.querySelector('.amt').textContent = item.amount;
+                tx.querySelector('.tx-date').textContent = 'le ' + item.date;
+                tx.querySelector('.tx-order').textContent = item.order ? 'Commande ' + item.order : 'Commande inconnue';
+                const cause = tx.querySelector('.tx-cause');
+                cause.textContent = item.cause;
+                if (item.severity === 'missing') cause.classList.add('missing');
+                const links = tx.querySelector('.tx-links');
+                [[item.orderUrl, item.order ? 'Voir la commande sur Amazon' : 'Voir mes commandes Amazon'],
+                 [item.askUrl, 'Demander une facture']].forEach(([href, label]) => {
+                    if (!href) return;
+                    const a = document.createElement('a');
+                    a.href = href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = label;
+                    links.appendChild(a);
+                });
+                const group = tx.querySelector('.tx-choices');
+                group.setAttribute('aria-label', `Choix pour ${item.amount} du ${item.date}`);
+                item.choices.forEach(choice => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = pending.labels[choice] || choice;
+                    b.setAttribute('aria-pressed', 'false');
+                    b.addEventListener('click', () => {
+                        answers[item.id] = choice;
+                        group.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+                        tx.classList.remove('missing');
+                        refreshDecide(pending);
+                    });
+                    group.appendChild(b);
+                });
+                list.appendChild(tx);
+            });
+            refreshDecide(pending);
+            document.getElementById('decisionCard').classList.remove('hidden');
+            document.getElementById('decisionCard').scrollIntoView({ block: 'nearest' });
+        }
+
+        function missingItems(pending) {
+            return pending.items.filter(item => !answers[item.id]);
+        }
+
+        function refreshDecide(pending) {
+            const missing = missingItems(pending);
+            document.getElementById('decideBtn').setAttribute('aria-disabled', String(missing.length > 0));
+            if (!missing.length) document.getElementById('decisionRefuse').textContent = '';
+        }
+
+        document.getElementById('decideBtn').addEventListener('click', async () => {
+            const pendingId = shownDecision;
+            const list = [...document.querySelectorAll('#decisionList .tx')];
+            const missing = list.filter(tx => !answers[tx.dataset.id]);
+            if (missing.length) {
+                missing.forEach(tx => tx.classList.add('missing'));
+                const first = missing[0];
+                document.getElementById('decisionRefuse').textContent = missing.length === 1
+                    ? `Il manque ton choix pour ${first.querySelector('.amt').textContent} du ${first.querySelector('.tx-date').textContent.replace('le ', '')}.`
+                    : `Il manque ton choix pour ${missing.length} transactions (surlignées en rouge).`;
+                first.scrollIntoView({ block: 'nearest' });
+                return;
+            }
+            const result = await fetch('/api/decision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: pendingId, answers: { ...answers } })
+            });
+            if (result.ok) {
+                hideDecision();
+            } else {
+                const data = await result.json().catch(() => ({}));
+                (data.missing || []).forEach(id => {
+                    const tx = document.querySelector(`#decisionList .tx[data-id="${id}"]`);
+                    if (tx) tx.classList.add('missing');
+                });
+                document.getElementById('decisionRefuse').textContent = data.error || 'Réponse refusée : un choix manque.';
+            }
+        });
+
         function updateUI() {
             document.getElementById('startBtn').disabled = isRunning;
             document.getElementById('stopBtn').disabled = !isRunning;
+            monthSelect.disabled = isRunning;
 
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');

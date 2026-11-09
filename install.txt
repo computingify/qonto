@@ -9,4 +9,4 @@ dateparser
 python-dateutil
 urllib3<2.0.0
 PySimpleGUI
-flask
+flaskplaywright

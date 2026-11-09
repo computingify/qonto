@@ -7,7 +7,10 @@ import googleInvoiceInMail
 import shutil
 import extInfoAccess
 import status
+import uuid
+import amazon
 from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
 
 class Qonto:
     listManageable = ["Google Cloud France SARL", "CDVI-HI"]
@@ -26,10 +29,12 @@ class Qonto:
         # Tous les problèmes rencontrés sont accumulés ici pour être remontés à
         # l'interface au lieu de se perdre dans les logs.
         self.report = status.Report(society)
+        self.amazonLeftIds = set()
 
     def run(self):
         print(">>>>> Get all transaction from Qonto")
         self.addMissingAttachment()
+        self.addAmazonAttachments()
         self.receiveTransactionAttachment()
         return self.report
 
@@ -147,6 +152,9 @@ class Qonto:
                                 attachmentNbr =+ 1
                                 downloaded += 1
                                 print("\t\t", "==> Successful downloaded:", name)
+                        elif transaction.get("id") in self.amazonLeftIds:
+                            # Déjà signalée par l'étape Amazon, avec le lien vers la commande.
+                            print("==> No Attachment (Amazon, laissée par l'utilisateur):", label, ref)
                         else:
                             print("==> FAILLURE No Attachment:", label, ref, "Amount:", transaction["side"], transaction["amount"], transaction["currency"], "Date:", date)
                             self.report.warning(
@@ -248,13 +256,32 @@ class Qonto:
                         # qui balaie les mêmes transactions avec plus de détail.
                         print("Not transaction found on Qonto for:", label, date, amount, " => need to be added manually")
 
+    def addAmazonAttachments(self):
+        """Spec 001 : joindre les factures Amazon des transactions du mois."""
+        year, month = Qonto.requestedDate.year, Qonto.requestedDate.month
+        # Un an en arrière pour repérer aussi les oublis hors période (A1).
+        since = (datetime(year, month, 1) - relativedelta(months=12)).strftime("%Y-%m-%dT00:00:00Z")
+        try:
+            transactions = amazon.fetch_transactions(Qonto.baseUrl, Qonto.genericHeaders, since)
+        except Exception as e:
+            self.report.error("Transactions Qonto illisibles pour l'étape Amazon", f"{type(e).__name__}: {e}")
+            return
+        step = amazon.AmazonStep(
+            Qonto.society, year, month,
+            lambda transaction, path, name: self.addAttachment(
+                transaction["id"], path, name, amazon.normalize(transaction.get("label"))),
+            self.report, transactions=transactions)
+        step.run()
+        self.amazonLeftIds = step.left_ids
+
     def addAttachment(self, transactionId, filePath, fileName, label):
         url = Qonto.baseUrl + 'transactions/' + transactionId + '/attachments/'
 
-        files = [('file', (fileName, open(filePath, 'rb'), 'application/pdf'))]
+        with open(filePath, 'rb') as handle:
+            files = [('file', (fileName, handle, 'application/pdf'))]
+            headers = dict(Qonto.genericHeaders, **{"X-Qonto-Idempotency-Key": str(uuid.uuid4())})
+            response = requests.post(url, headers=headers, files=files, timeout=120)
 
-        response = requests.post(url, headers=Qonto.genericHeaders, files=files)
-        
         if response.ok:
             print(f'\t {label} ==> Successfully updated')
         else:
@@ -263,6 +290,7 @@ class Qonto:
                 "Envoi du justificatif vers Qonto refusé",
                 f"{label} (HTTP {response.status_code})",
             )
+        return response.ok
 
     def getTransactionAttachment(self, id):
         attachmentsUrl = Qonto.baseUrl + "attachments/" + id
