@@ -5,6 +5,7 @@ import os
 import json
 import qonto
 import amazon
+import telecom
 import sys
 import extInfoAccess
 import status
@@ -298,6 +299,7 @@ def main(argv):
             print(f'======= PROCESS ended for {society} =======')
 
         amazon.close_browser()
+        telecom.close_browsers()
         printSummary(reports)
 
         # TODO send zip file by mail to ANC2

@@ -501,6 +501,7 @@
         .btn-decide { background: #22d39a; color: #062a1d; white-space: nowrap; flex: none; }
         .btn-decide[aria-disabled="true"] { opacity: .45; }
         .d-refuse { font-size: 13px; color: #ff5c6c; }
+        .src-tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 2px 7px; border-radius: 5px; background: #1c2340; color: #9aa3c0; margin-right: 8px; vertical-align: 2px; }
     </style>
 </head>
 <body>
@@ -547,7 +548,7 @@
             <div class="amz-lines" id="amzLines" aria-live="polite"></div>
         </div>
 
-        <!-- Décision Amazon (spec 001) -->
+        <!-- Décision justificatifs : Amazon (spec 001), Bouygues et Free (spec 002) -->
         <section class="card decision-card hidden" id="decisionCard" aria-labelledby="decisionTitle">
             <div class="section-title" id="decisionTitle">Décision Amazon</div>
             <p class="d-intro" id="decisionIntro"></p>
@@ -674,7 +675,7 @@
                 if (data.logs.length > 0) container.scrollTop = container.scrollHeight;
 
                 applyStatuses(data.statuses || {});
-                renderAmazon(data.amazon || {});
+                renderSources(data.sources, data.amazon || {});
                 renderDecision(data.decision);
 
                 isRunning = data.running;
@@ -798,22 +799,28 @@
             });
         }
 
-        // --- Ligne « Amazon » par société ---
-        function renderAmazon(amazon) {
+        // --- Une ligne par source (Amazon, Bouygues, Free) et par société ---
+        const SOURCES = ['Amazon', 'Bouygues', 'Free'];
+        function renderSources(sources, amazon) {
+            // Ancien format (Amazon seul) si le lanceur ne donne pas encore `sources`.
+            if (!sources) sources = Object.fromEntries(Object.entries(amazon).map(([s, t]) => [s, { Amazon: t }]));
             const box = document.getElementById('amzLines');
             box.innerHTML = '';
             Object.keys(SOCIETIES).forEach(society => {
-                if (!amazon[society]) return;
-                const line = document.createElement('div');
-                line.append('Amazon · ' + SOCIETIES[society] + ' : ');
-                const b = document.createElement('b');
-                b.textContent = amazon[society];
-                line.appendChild(b);
-                box.appendChild(line);
+                const lines = sources[society] || {};
+                [...SOURCES, ...Object.keys(lines).filter(x => !SOURCES.includes(x))].forEach(source => {
+                    if (!lines[source]) return;
+                    const line = document.createElement('div');
+                    line.append(source + ' · ' + SOCIETIES[society] + ' : ');
+                    const b = document.createElement('b');
+                    b.textContent = lines[source];
+                    line.appendChild(b);
+                    box.appendChild(line);
+                });
             });
         }
 
-        // --- Carte « Décision Amazon » (spec 001, F3/F5) ---
+        // --- Carte de décision : Amazon (spec 001), Bouygues et Free (spec 002) ---
         let shownDecision = null;
         const answers = {};
 
@@ -828,7 +835,10 @@
             shownDecision = pending.id;
             Object.keys(answers).forEach(k => delete answers[k]);
             const society = SOCIETIES[pending.society] || pending.society;
-            document.getElementById('decisionTitle').textContent = `Décision Amazon · ${society} · ${pending.period}`;
+            const sources = [...new Set(pending.items.map(item => item.source || 'Amazon'))];
+            const single = sources.length === 1 ? sources[0] : null;
+            document.getElementById('decisionTitle').textContent =
+                `Décision ${single || 'justificatifs'} · ${society} · ${pending.period}`;
             const n = pending.items.length;
             document.getElementById('decisionIntro').textContent =
                 `${n} transaction${n > 1 ? 's' : ''} de ${pending.period} ${n > 1 ? 'ont' : 'a'} besoin de toi.`;
@@ -838,21 +848,32 @@
             pending.items.forEach(item => {
                 const tx = document.createElement('div');
                 tx.className = 'tx'; tx.dataset.id = item.id;
+                tx.dataset.label = (single ? '' : (item.source || 'Amazon') + ' ') + item.amount;
                 tx.innerHTML = `
                     <div class="tx-top"><span class="amt"></span><span class="tx-date"></span></div>
                     <div class="tx-order"></div>
                     <div class="tx-cause"></div>
                     <div class="tx-links"></div>
                     <div class="tx-choices" role="group"></div>`;
-                tx.querySelector('.amt').textContent = item.amount;
+                const amt = tx.querySelector('.amt');
+                if (!single) {
+                    const tag = document.createElement('span');
+                    tag.className = 'src-tag';
+                    tag.textContent = item.source || 'Amazon';
+                    amt.appendChild(tag);
+                }
+                amt.append(item.amount);
                 tx.querySelector('.tx-date').textContent = 'le ' + item.date;
-                tx.querySelector('.tx-order').textContent = item.order ? 'Commande ' + item.order : 'Commande inconnue';
+                tx.querySelector('.tx-order').textContent = item.ref
+                    || (item.order ? 'Commande ' + item.order : 'Commande inconnue');
                 const cause = tx.querySelector('.tx-cause');
                 cause.textContent = item.cause;
                 if (item.severity === 'missing') cause.classList.add('missing');
                 const links = tx.querySelector('.tx-links');
-                [[item.orderUrl, item.order ? 'Voir la commande sur Amazon' : 'Voir mes commandes Amazon'],
-                 [item.askUrl, 'Demander une facture']].forEach(([href, label]) => {
+                const linkList = item.links ? item.links.map(l => [l.href, l.label]) :
+                    [[item.orderUrl, item.order ? 'Voir la commande sur Amazon' : 'Voir mes commandes Amazon'],
+                     [item.askUrl, 'Demander une facture']];
+                linkList.forEach(([href, label]) => {
                     if (!href) return;
                     const a = document.createElement('a');
                     a.href = href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = label;
@@ -898,7 +919,7 @@
                 missing.forEach(tx => tx.classList.add('missing'));
                 const first = missing[0];
                 document.getElementById('decisionRefuse').textContent = missing.length === 1
-                    ? `Il manque ton choix pour ${first.querySelector('.amt').textContent} du ${first.querySelector('.tx-date').textContent.replace('le ', '')}.`
+                    ? `Il manque ton choix pour ${first.dataset.label} du ${first.querySelector('.tx-date').textContent.replace('le ', '')}.`
                     : `Il manque ton choix pour ${missing.length} transactions (surlignées en rouge).`;
                 first.scrollIntoView({ block: 'nearest' });
                 return;
