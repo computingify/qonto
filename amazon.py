@@ -1,5 +1,5 @@
 """
-Justificatifs Amazon (spec 001).
+Justificatifs Amazon (spec 001), sur le socle commun `sources` (spec 002, B1).
 
 Retrouve la facture Amazon de chaque transaction Qonto sans justificatif et la
 joint par l'API. L'association se fait par la « référence de paiement » : la fin
@@ -10,20 +10,19 @@ figure dans le PDF de la facture.
   (mois généré) ou hors période (signalées seulement, arbitrage A1).
 - F2 : facture trouvée et montant identique → jointe sans rien demander.
 - F3 : sinon → décision regroupée par société (A3), sans délai (A4).
-- F4 : amazon.fr dans Google Chrome installé, profil réservé à l'application.
+- F4 : amazon.fr dans Google Chrome installé, profil réservé à l'application
+  (commun aux sites de justificatifs depuis la spec 002, B2).
 """
 
-import json
 import os
 import re
-import subprocess
 import tempfile
-import uuid
-from datetime import datetime
 
-import requests
-
+import browser as chrome
 import decision
+import sources
+from sources import (day, euros, fetch_transactions, month_label, normalize,  # noqa: F401 (API publique)
+                     pdf_text, transaction_month)
 
 ORDER_RE = r"[A-Z0-9]{3}-\d{7}-\d{7}"
 REFERENCE_RE = re.compile(r"^(" + ORDER_RE + r") (AMZN Mktp FR|Amazon\.fr|Amazon Prime FR) (\S+)$", re.IGNORECASE)
@@ -32,18 +31,10 @@ ORDERS_URL = "https://www.amazon.fr/gp/css/order-history"
 ORDER_URL = "https://www.amazon.fr/gp/your-account/order-details?orderID={}"
 ASK_INVOICE_URL = "https://www.amazon.fr/gp/help/contact/contact.html?orderID={}"
 
-PROFILE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "amazon-profile")
-
-MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
-          "août", "septembre", "octobre", "novembre", "décembre"]
+PROFILE_DIR = chrome.PROFILE_DIR
 
 
 # --- F1 : reconnaître et trier --------------------------------------------
-
-def normalize(text):
-    """Espaces ramenés à un seul : Qonto écrit « AMAZON PAYMENTS EUROPE S  C  A »."""
-    return " ".join((text or "").split())
-
 
 def parse_reference(reference):
     """(n° de commande, canal, référence de paiement) ou None."""
@@ -54,60 +45,20 @@ def parse_reference(reference):
 
 
 def is_amazon(transaction):
-    issuer = (normalize(transaction.get("label")) + " "
-              + normalize(transaction.get("clean_counterparty_name"))).upper()
     reference = normalize(transaction.get("reference")).upper()
-    return ("AMAZON" in issuer or "AMZN" in reference
+    return ("AMAZON" in sources.issuer(transaction) or "AMZN" in reference
             or parse_reference(transaction.get("reference")) is not None)
-
-
-def transaction_month(transaction):
-    """(année, mois) de la transaction, comme le zip : date de règlement d'abord."""
-    date = transaction.get("settled_at") or transaction.get("emitted_at") or ""
-    return int(date[:4]), int(date[5:7])
 
 
 def split_by_period(transactions, year, month):
     """Transactions Amazon sans justificatif : (dans la période, hors période)."""
-    inside, outside = [], []
-    for transaction in transactions:
-        if transaction.get("attachment_ids") or not is_amazon(transaction):
-            continue
-        if not transaction.get("amount"):
-            continue
-        if transaction_month(transaction) == (year, month):
-            inside.append(transaction)
-        else:
-            outside.append(transaction)
-    return inside, outside
+    return sources.split_by_period(transactions, year, month, is_amazon)
 
 
-def month_label(year, month):
-    return f"{MONTHS[month - 1]} {year}"
-
-
-def euros(amount):
-    return f"{abs(float(amount)):.2f}".replace(".", ",") + " €"
-
-
-def day(transaction):
-    date = transaction.get("settled_at") or transaction.get("emitted_at") or ""
-    return f"{date[8:10]}/{date[5:7]}/{date[:4]}"
-
-
-# --- Lecture des PDF (PDFKit, intégré à macOS) -----------------------------
-
-_PDF_SCRIPT = 'ObjC.import("PDFKit"); function run(a){ var d = $.PDFDocument.alloc.initWithURL($.NSURL.fileURLWithPath(a[0])); return d ? d.string.js : ""; }'
-
-
-def pdf_text(path):
-    result = subprocess.run(["osascript", "-l", "JavaScript", "-e", _PDF_SCRIPT, path],
-                            capture_output=True, text=True, timeout=60)
-    return result.stdout
-
+# --- Lecture des PDF ----------------------------------------------------------
 
 def _amount(text):
-    return float(text.replace(" ", "").replace(" ", "").replace(".", "").replace(",", "."))
+    return sources.amount_fr(text)
 
 
 def parse_invoice(text):
@@ -119,84 +70,24 @@ def parse_invoice(text):
             abs(_amount(total.group(1))) if total else None)
 
 
-# --- Qonto ------------------------------------------------------------------
-
-def fetch_transactions(base_url, headers, since):
-    """Toutes les transactions depuis `since` (ISO), tous comptes, toutes pages."""
-    organization = requests.get(base_url + "organization", headers=headers, timeout=30)
-    organization.raise_for_status()
-    transactions = []
-    for account in organization.json()["organization"]["bank_accounts"]:
-        page = 1
-        while page:
-            response = requests.get(base_url + "transactions", headers=headers, timeout=60, params={
-                "bank_account_id": account["id"], "emitted_at_from": since,
-                "status[]": ["completed"], "per_page": 100, "current_page": page})
-            response.raise_for_status()
-            data = response.json()
-            transactions += data["transactions"]
-            page = data["meta"].get("next_page")
-    return transactions
-
-
 # --- F4 : amazon.fr ---------------------------------------------------------
 
 class AmazonLoginRequired(Exception):
     pass
 
 
-class AmazonBrowser:
-    """
-    amazon.fr dans Google Chrome installé (channel « chrome »), avec un profil
-    réservé à QontoUpdate : la session reste mémorisée d'une fois sur l'autre.
-    Démarre sans fenêtre ; si Amazon demande une connexion, rouvre une fenêtre
-    visible et attend que l'utilisateur se soit connecté.
-    """
+class AmazonBrowser(chrome.SiteBrowser):
+    """amazon.fr dans la session Chrome commune."""
 
-    def __init__(self, notify=print):
-        self.notify = notify
-        self._playwright = None
-        self._context = None
-        self._page = None
-        self._headless = True
-
-    def _launch(self, headless):
-        from playwright.sync_api import sync_playwright
-        if self._playwright is None:
-            self._playwright = sync_playwright().start()
-        if self._context is not None:
-            self._context.close()
-        self._context = self._playwright.chromium.launch_persistent_context(
-            PROFILE_DIR, channel="chrome", headless=headless, accept_downloads=True)
-        self._page = self._context.pages[0] if self._context.pages else self._context.new_page()
-        self._headless = headless
+    name = "Amazon"
+    home_url = ORDERS_URL
 
     def _logged_in(self):
         url = self._page.url
         return "/ap/" not in url and ("order-history" in url or "/your-orders" in url)
 
-    def _wait_login(self):
-        """Attend la connexion ; hors des pages /ap/ (connexion, 2FA), on revient sur « Vos commandes »."""
-        while not self._logged_in():
-            self._page.wait_for_timeout(2000)
-            if "/ap/" not in self._page.url and not self._logged_in():
-                try:
-                    self._page.goto(ORDERS_URL, wait_until="domcontentloaded")
-                except Exception:
-                    pass
-
-    def open(self):
-        if self._page is None:
-            self._launch(headless=True)
-        self._page.goto(ORDERS_URL, wait_until="domcontentloaded")
-        if self._logged_in():
-            return
-        # Connexion nécessaire : fenêtre visible, on attend sans limite (A4).
-        self._launch(headless=False)
-        self._page.goto(ORDERS_URL, wait_until="domcontentloaded")
-        self.notify("Amazon : connecte-toi à Amazon dans la fenêtre Chrome ouverte, l'application attend.")
-        self._wait_login()
-        self.notify("Amazon : connexion détectée, reprise.")
+    def _on_login_page(self):
+        return "/ap/" in self._page.url
 
     def invoice_links(self, order_id):
         links = self._page.evaluate("""async (order) => {
@@ -211,21 +102,12 @@ class AmazonBrowser:
         return ["https://www.amazon.fr" + h if h.startswith("/") else h for h in links]
 
     def download(self, url, dest):
-        response = self._context.request.get(url, timeout=60000)
+        response = self.context.request.get(url, timeout=60000)
         body = response.body()
         if not response.ok or not body.startswith(b"%PDF"):
             raise IOError(f"téléchargement refusé ({response.status})")
         with open(dest, "wb") as handle:
             handle.write(body)
-
-    def close(self):
-        try:
-            if self._context is not None:
-                self._context.close()
-            if self._playwright is not None:
-                self._playwright.stop()
-        finally:
-            self._context = self._playwright = self._page = None
 
 
 _browser = None
@@ -241,10 +123,10 @@ def browser():
 
 
 def close_browser():
+    """Ferme la session Chrome commune (fin du traitement)."""
     global _browser
-    if _browser is not None:
-        _browser.close()
-        _browser = None
+    _browser = None
+    chrome.SESSION.close()
 
 
 # --- F2 / F3 : associer, joindre, décider ------------------------------------
@@ -293,6 +175,7 @@ def decision_item(transaction, found):
         choices = [decision.LEAVE, decision.RETRY]
     return {
         "id": transaction["id"],
+        "source": "Amazon",
         "amount": ("+" if refund else "") + amount,
         "date": day(transaction),
         "order": order,
@@ -304,21 +187,17 @@ def decision_item(transaction, found):
     }
 
 
-class AmazonStep:
+class AmazonStep(sources.Step):
     """Étape « Justificatifs Amazon » d'une société."""
+
+    source = "Amazon"
 
     def __init__(self, society, year, month, attach, report, invoices_for_order=None,
                  ask=decision.ask, transactions=None):
-        self.society = getattr(society, "value", society)
-        self.year, self.month = year, month
-        self.attach = attach            # attach(transaction, chemin, nom) -> bool
-        self.report = report
-        self.ask = ask
-        self.transactions = transactions or []
+        super().__init__(society, year, month, attach, report, ask=ask, transactions=transactions)
         self._invoices_for_order = invoices_for_order or self._download_invoices
         self._cache = {}
         self._tmp = tempfile.mkdtemp(prefix="qonto-amazon-")
-        self.left_ids = set()           # restées sans justificatif : signalées ici
 
     def _download_invoices(self, order):
         amazon = browser()
@@ -340,65 +219,11 @@ class AmazonStep:
             self._cache[order] = self._invoices_for_order(order)
         return self._cache[order]
 
-    def run(self):
-        period = month_label(self.year, self.month)
-        inside, outside = split_by_period(self.transactions, self.year, self.month)
-        print(f"Amazon : {len(inside)} transaction(s) de {period} sans justificatif, {len(outside)} hors période")
+    # --- Contrat du socle ---
+    def select(self, transactions):
+        return split_by_period(transactions, self.year, self.month)
 
-        joined, partial = 0, 0
-        pending = []
-        for transaction in inside:
-            found = self._find(transaction)
-            if found["kind"] == "ok" and self._attach(transaction, found):
-                joined += 1
-            else:
-                pending.append((transaction, found))
-
-        # F3 : une décision regroupée par société, répétée tant qu'on « Réessaie ».
-        while pending:
-            decision.summary(self.society, f"{joined} jointe(s) · {len(pending)} décision(s) en attente")
-            items = [decision_item(t, f) for t, f in pending]
-            answers = self.ask(self.society, period, items)
-            retry = []
-            for transaction, found in pending:
-                choice = answers.get(transaction["id"], decision.LEAVE)
-                if choice == decision.ATTACH and found.get("file") and self._attach(transaction, found):
-                    joined += 1
-                    partial += 1
-                    self.report.warning(
-                        "Justificatif Amazon partiel joint",
-                        f"{euros(transaction['amount'])} le {day(transaction)} — {ORDER_URL.format(found['order'])}")
-                elif choice == decision.RETRY:
-                    retry.append(transaction)
-                else:
-                    self.left_ids.add(transaction["id"])
-                    self.report.warning(
-                        "Transaction Amazon sans justificatif",
-                        f"{euros(transaction['amount'])} le {day(transaction)} — "
-                        + (ORDER_URL.format(found["order"]) if found.get("order") else normalize(transaction.get("label"))))
-            pending = []
-            for transaction in retry:
-                found = self._find(transaction, refresh=True)
-                if found["kind"] == "ok" and self._attach(transaction, found):
-                    joined += 1
-                else:
-                    pending.append((transaction, found))
-
-        if outside:
-            months = sorted({transaction_month(t) for t in outside})
-            self.report.warning(
-                f"{len(outside)} transaction(s) Amazon sans justificatif hors période",
-                "à traiter avec la génération de " + ", ".join(month_label(y, m) for y, m in months))
-
-        text = f"{joined} jointe(s)"
-        if partial:
-            text += f" dont {partial} partielle(s)"
-        text += f" · {len(self.left_ids)} sans justificatif · {len(outside)} hors période"
-        decision.summary(self.society, text)
-        print(f"Amazon : {text}")
-        return joined
-
-    def _find(self, transaction, refresh=False):
+    def find(self, transaction, refresh=False):
         parsed = parse_reference(transaction.get("reference"))
         if parsed and refresh:
             self.invoices(parsed[0], refresh=True)
@@ -409,6 +234,8 @@ class AmazonStep:
                               f"{euros(transaction['amount'])} le {day(transaction)} ({type(e).__name__}: {e})")
             return {"kind": "none", "order": parsed[0] if parsed else None}
 
-    def _attach(self, transaction, found):
-        name = os.path.basename(found["file"])
-        return bool(self.attach(transaction, found["file"], name))
+    def decision_item(self, transaction, found):
+        return decision_item(transaction, found)
+
+    def link(self, transaction, found):
+        return ORDER_URL.format(found["order"]) if found.get("order") else normalize(transaction.get("label"))

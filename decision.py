@@ -84,9 +84,9 @@ def answer_line(decision_id, answers):
     return ANSWER_PREFIX + json.dumps({"id": decision_id, "answers": answers}, ensure_ascii=False)
 
 
-def summary(society, text, stdout=None):
-    """Ligne « Amazon » d'une société, affichée sous les pastilles."""
+def summary(society, text, stdout=None, source="Amazon"):
+    """Ligne « <source> » d'une société (Amazon, Free, Bouygues), affichée sous les pastilles."""
     stdout = stdout or sys.stdout
-    payload = {"society": getattr(society, "value", society), "text": text}
+    payload = {"society": getattr(society, "value", society), "source": source, "text": text}
     stdout.write(AMAZON_PREFIX + json.dumps(payload, ensure_ascii=False) + "\n")
     stdout.flush()

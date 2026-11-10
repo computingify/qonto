@@ -9,6 +9,8 @@ import extInfoAccess
 import status
 import uuid
 import amazon
+import sources
+import telecom
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
@@ -29,12 +31,14 @@ class Qonto:
         # Tous les problèmes rencontrés sont accumulés ici pour être remontés à
         # l'interface au lieu de se perdre dans les logs.
         self.report = status.Report(society)
-        self.amazonLeftIds = set()
+        # Transactions laissées sans justificatif par l'utilisateur, par source
+        # (déjà signalées avec leur lien) : {id: « Amazon » | « Free » | « Bouygues »}.
+        self.leftIds = {}
 
     def run(self):
         print(">>>>> Get all transaction from Qonto")
         self.addMissingAttachment()
-        self.addAmazonAttachments()
+        self.addSourceAttachments()
         self.receiveTransactionAttachment()
         return self.report
 
@@ -152,9 +156,9 @@ class Qonto:
                                 attachmentNbr =+ 1
                                 downloaded += 1
                                 print("\t\t", "==> Successful downloaded:", name)
-                        elif transaction.get("id") in self.amazonLeftIds:
-                            # Déjà signalée par l'étape Amazon, avec le lien vers la commande.
-                            print("==> No Attachment (Amazon, laissée par l'utilisateur):", label, ref)
+                        elif transaction.get("id") in self.leftIds:
+                            # Déjà signalée par l'étape de sa source, avec son lien.
+                            print(f"==> No Attachment ({self.leftIds[transaction.get('id')]}, laissée par l'utilisateur):", label, ref)
                         else:
                             print("==> FAILLURE No Attachment:", label, ref, "Amount:", transaction["side"], transaction["amount"], transaction["currency"], "Date:", date)
                             self.report.warning(
@@ -256,23 +260,35 @@ class Qonto:
                         # qui balaie les mêmes transactions avec plus de détail.
                         print("Not transaction found on Qonto for:", label, date, amount, " => need to be added manually")
 
-    def addAmazonAttachments(self):
-        """Spec 001 : joindre les factures Amazon des transactions du mois."""
+    def addSourceAttachments(self):
+        """Spec 001 et 002 : factures Amazon, Free et Bouygues des transactions du mois,
+        avec une seule carte de décision par société pour les trois sources."""
         year, month = Qonto.requestedDate.year, Qonto.requestedDate.month
         # Un an en arrière pour repérer aussi les oublis hors période (A1).
         since = (datetime(year, month, 1) - relativedelta(months=12)).strftime("%Y-%m-%dT00:00:00Z")
         try:
-            transactions = amazon.fetch_transactions(Qonto.baseUrl, Qonto.genericHeaders, since)
+            transactions = sources.fetch_transactions(Qonto.baseUrl, Qonto.genericHeaders, since)
         except Exception as e:
-            self.report.error("Transactions Qonto illisibles pour l'étape Amazon", f"{type(e).__name__}: {e}")
+            self.report.error("Transactions Qonto illisibles pour l'étape Amazon et opérateurs", f"{type(e).__name__}: {e}")
             return
-        step = amazon.AmazonStep(
-            Qonto.society, year, month,
-            lambda transaction, path, name: self.addAttachment(
-                transaction["id"], path, name, amazon.normalize(transaction.get("label"))),
-            self.report, transactions=transactions)
-        step.run()
-        self.amazonLeftIds = step.left_ids
+
+        def attach(transaction, path, name):
+            return self.addAttachment(transaction["id"], path, name, sources.normalize(transaction.get("label")))
+
+        def names_of(transaction):
+            return sources.attachment_names(Qonto.baseUrl, Qonto.genericHeaders, transaction)
+
+        steps = [
+            amazon.AmazonStep(Qonto.society, year, month, attach, self.report, transactions=transactions),
+            telecom.BouyguesStep(Qonto.society, year, month, attach, self.report,
+                                 transactions=transactions, names_of=names_of),
+            telecom.FreeStep(Qonto.society, year, month, attach, self.report,
+                             transactions=transactions, names_of=names_of),
+        ]
+        sources.run_steps(getattr(Qonto.society, "value", Qonto.society), sources.month_label(year, month), steps)
+        for step in steps:
+            for transactionId in step.left_ids:
+                self.leftIds[transactionId] = step.source
 
     def addAttachment(self, transactionId, filePath, fileName, label):
         url = Qonto.baseUrl + 'transactions/' + transactionId + '/attachments/'

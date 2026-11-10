@@ -66,13 +66,36 @@ du mois suivant). En Terminal : --month AAAA_MM.
 ----------------------------------------
 Avant la récupération des justificatifs, l'app cherche les transactions
 Amazon sans justificatif du mois choisi, télécharge les factures sur
-amazon.fr (Google Chrome, profil dédié dans amazon-profile/) et joint
+amazon.fr (Google Chrome, profil dédié dans browser-profile/) et joint
 celle dont la « Référence de paiement » et le montant correspondent.
 Facture partielle, absente ou illisible : une carte « Décision Amazon »
 s'affiche et l'app attend la réponse. Les transactions d'autres mois
 sont seulement signalées.
 Première fois (ou session expirée) : une fenêtre Chrome s'ouvre sur la
 connexion Amazon, se connecter dedans, l'app reprend seule.
+
+----------------------------------------
+  Justificatifs Bouygues Telecom et Free (spec 002)
+----------------------------------------
+Juste après Amazon, même principe pour les prélèvements Bouygues Telecom
+et Free (Freebox) :
+- Free : le n° de la référence Qonto (« Free HautDebit 1510870586 ») est
+  celui de la facture ; elle est prise dans l'espace abonné et jointe si
+  le montant est identique.
+- Bouygues : la facture du 27 du mois précédent, de même montant, est
+  prise dans « Mes factures » et jointe ; le PDF confirme la date du
+  prélèvement.
+Sinon, la transaction rejoint la carte de décision : une seule carte par
+société pour Amazon, Bouygues et Free (« Décision justificatifs »).
+Les justificatifs DÉJÀ joints du mois sont contrôlés d'après leur nom
+d'origine (mauvaise facture, doublon) : signalé en orange, rien n'est
+modifié sur Qonto. Un fichier renommé n'est pas vérifiable.
+Le navigateur ne s'ouvre que s'il y a une facture à chercher. Session
+expirée : une fenêtre Chrome s'ouvre sur la connexion Free ou Bouygues,
+se connecter dedans (code SMS compris), l'app reprend seule.
+Profil Chrome commun aux trois sites : browser-profile/ (l'ancien
+amazon-profile/ est renommé au premier lancement, la session Amazon est
+conservée).
 
 ----------------------------------------
   Lancement manuel (équivalent, Terminal)

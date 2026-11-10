@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec 002 — Justificatifs Bouygues Telecom et Free dans QontoUpdate</title>
+<style>
+  :root {
+    --bg: #0a0e27; --card: #151a2f; --line: #1e2749; --ink: #e6e8f0; --mute: #9aa3c0;
+    --cyan: #00d4ff; --blue: #0099ff; --green: #22d39a; --orange: #ffad33; --red: #ff5c6c; --grey: #4a5578;
+    --paper: #f7f6f2; --paper-ink: #1d1d1f; --paper-mute: #5b5b63; --paper-line: #dedbd2; --accent: #0071e3;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { font: 100%/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; color: var(--paper-ink); background: var(--paper); }
+  ::selection { background: #0071e333; }
+  body { padding: 56px 24px 96px; }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 2.1rem; line-height: 1.12; letter-spacing: -0.02em; font-weight: 700; text-wrap: balance; }
+  h2 { font-size: 1.3rem; letter-spacing: -0.01em; margin: 56px 0 14px; }
+  h3 { font-size: 1rem; margin: 22px 0 6px; }
+  p, li { max-width: 70ch; }
+  p + p { margin-top: 10px; }
+  ul { padding-left: 1.2em; } li + li { margin-top: 6px; }
+  .lede { font-size: 1.12rem; color: var(--paper-mute); margin-top: 12px; }
+  .meta { font-size: .85rem; color: var(--paper-mute); margin-top: 18px; }
+  code { font: .86em ui-monospace, "SF Mono", Menlo, monospace; background: #ebe8df; padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: .93rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--paper-line); vertical-align: top; }
+  th { font-weight: 600; color: var(--paper-mute); font-size: .82rem; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  .verdict { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--paper-line); border: 1px solid var(--paper-line); border-radius: 12px; overflow: hidden; margin-top: 18px; }
+  .verdict div { background: #fff; padding: 16px 18px; }
+  .verdict b { display: block; font-size: 1.6rem; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .verdict span { font-size: .88rem; color: var(--paper-mute); }
+
+  /* --- Maquette QontoUpdate (monde visuel existant de l'application) --- */
+  .stage { margin-top: 18px; background: var(--bg); border-radius: 16px; padding: 28px 20px 32px; color: var(--ink); box-shadow: 0 18px 40px -18px #0a0e2780; }
+  .stage-note { font-size: .85rem; color: var(--paper-mute); margin-top: 10px; }
+  .app { max-width: 520px; margin: 0 auto; font-size: 14px; }
+  .app-head { text-align: center; margin-bottom: 22px; }
+  .app-head b { font-size: 26px; color: var(--cyan); letter-spacing: -0.01em; }
+  .app-head small { display: block; font-size: 11px; color: var(--mute); letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
+  .c { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+  .ct { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); margin-bottom: 12px; font-weight: 600; }
+  .row { display: flex; gap: 8px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid transparent; padding: 10px 14px; font-weight: 600; transition: transform .1s ease-out, opacity .15s, background-color .15s; }
+  button:active:not(:disabled) { transform: scale(.97); }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .b-start { flex: 1; background: #0a66c2; color: #fff; }
+  .b-stop { flex: 1; background: #2a3354; color: var(--mute); }
+  .month { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 13px; color: var(--mute); }
+  .month select { font: inherit; font-size: 14px; color: var(--ink); background: #0f1424; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 210px; }
+  .month-msg { font-size: 13px; color: var(--red); margin: -4px 0 12px; }
+  .month-msg:empty { display: none; }
+  .b-start[aria-disabled="true"] { opacity: .45; }
+  .pills { display: flex; justify-content: space-around; }
+  .pill { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--grey); transition: background-color .3s; }
+  .dot.run { background: var(--blue); animation: pulse 1.1s ease-in-out infinite; }
+  .dot.ok { background: var(--green); } .dot.warn { background: var(--orange); } .dot.err { background: var(--red); }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .amz-line { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--mute); font-variant-numeric: tabular-nums; min-height: 1.4em; }
+  .amz-line b { color: var(--ink); font-weight: 600; }
+
+  .decision { border-color: #2f6fb3; box-shadow: 0 10px 28px -14px #0099ff66; }
+  .decision[hidden] { display: none; }
+  .decision.enter { animation: rise .32s cubic-bezier(.2,.8,.2,1); }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .d-intro { font-size: 13px; color: var(--mute); margin: -4px 0 12px; }
+  .tx { border-top: 1px solid var(--line); padding: 14px 10px; margin: 0 -10px; border-radius: 6px; transition: background-color .2s; }
+  .tx.missing { background: #ff5c6c14; }
+  .tx.missing .amt::after { content: " · choix manquant"; font-size: 12px; font-weight: 600; color: var(--red); }
+  .tx-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .amt { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .date { color: var(--mute); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .order { font: 12px ui-monospace, Menlo, monospace; color: var(--mute); margin-top: 2px; }
+  .cause { margin-top: 8px; font-size: 13px; }
+  .cause.p { color: var(--orange); } .cause.n { color: var(--red); }
+  .links { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 13px; }
+  .links a { color: var(--cyan); }
+  .choices { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .ch { background: #1c2340; color: var(--ink); border-color: var(--line); padding: 8px 11px; font-weight: 500; font-size: 13px; }
+  .ch[aria-pressed="true"] { background: #0f3a63; border-color: var(--cyan); color: #fff; }
+  .retry-msg { font-size: 12px; color: var(--red); margin-top: 6px; }
+  .d-foot { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  .b-ok { background: var(--green); color: #062a1d; white-space: nowrap; flex: none; }
+  .refuse { font-size: 13px; color: var(--red); }
+  .b-ok[aria-disabled="true"] { opacity: .45; }
+  .issues li { font-size: 13px; color: var(--ink); max-width: none; }
+  .issues li span { color: var(--mute); }
+  .issues ul { padding-left: 1.1em; }
+  .info { font-size: 13px; color: var(--mute); }
+  .logs { font: 12px/1.6 ui-monospace, Menlo, monospace; color: #9fb0d8; background: #0f1424; border-radius: 8px; padding: 10px; height: 116px; overflow: auto; white-space: pre-wrap; }
+  .logs::-webkit-scrollbar { width: 6px; } .logs::-webkit-scrollbar-thumb { background: #2a3354; border-radius: 3px; }
+
+  /* --- Arbitrages --- */
+  .arb { background: #fff; border: 1px solid var(--paper-line); border-radius: 12px; padding: 18px 20px; margin-top: 14px; }
+  .arb h3 { margin-top: 0; }
+  .arb p { color: var(--paper-mute); font-size: .93rem; }
+  .opts { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--paper-line); border-radius: 10px; cursor: pointer; transition: border-color .15s, background-color .15s; }
+  .opt:hover { border-color: #b9b5a8; }
+  .opt:has(input:checked) { border-color: var(--accent); background: #0071e30d; }
+  .opt input { margin-top: 4px; accent-color: var(--accent); }
+  .opt small { display: block; color: var(--paper-mute); }
+  .free { width: 100%; margin-top: 10px; font: inherit; font-size: .92rem; padding: 9px 11px; border: 1px solid var(--paper-line); border-radius: 8px; background: #fbfaf7; resize: vertical; min-height: 40px; }
+  .recap { width: 100%; min-height: 150px; font: .85rem/1.5 ui-monospace, Menlo, monospace; padding: 12px; border-radius: 10px; border: 1px solid var(--paper-line); background: #fff; margin-top: 12px; }
+  .b-copy { background: var(--accent); color: #fff; margin-top: 10px; }
+  .copied { font-size: .88rem; color: var(--paper-mute); margin-left: 10px; }
+
+  @media (max-width: 640px) {
+    body { padding: 32px 16px 64px; } h1 { font-size: 1.7rem; }
+    .verdict { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: opacity .15s !important; }
+  }
+  /* --- Ajouts spec 002 --- */
+  .src-lines { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--mute); font-variant-numeric: tabular-nums; min-height: 1.4em; }
+  .src-lines div + div { margin-top: 4px; }
+  .src-lines b { color: var(--ink); font-weight: 600; }
+  .src-lines .w { color: var(--orange); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 2px 7px; border-radius: 5px; background: #1c2340; color: var(--mute); margin-right: 8px; vertical-align: 2px; }
+  .login { margin-top: 12px; padding: 12px; border-radius: 8px; background: #0f3a6333; border: 1px solid #2f6fb3; font-size: 13px; }
+  .login[hidden] { display: none; }
+  .login button { margin-top: 10px; background: #1c2340; color: var(--ink); border-color: var(--line); font-weight: 500; font-size: 13px; padding: 8px 11px; }
+  .variants { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .variants label { display: flex; gap: 10px; align-items: flex-start; font-size: .93rem; cursor: pointer; }
+  .variants input { margin-top: 5px; accent-color: var(--accent); }
+  .variants small { display: block; color: var(--paper-mute); }
+  .variants label:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+  .ok-txt { color: var(--green); } .warn-txt { color: var(--orange); }
+  .flow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .flow > div { background: #fff; border: 1px solid var(--paper-line); border-radius: 12px; padding: 16px 18px; }
+  .flow h3 { margin-top: 0; }
+  .flow ol { padding-left: 1.2em; font-size: .93rem; } .flow li + li { margin-top: 5px; }
+  .key { margin-top: 10px; font-size: .88rem; color: var(--paper-mute); }
+  @media (max-width: 640px) { .flow { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ajouter tout seul les factures Bouygues Telecom et Free dans Qonto</h1>
+  <p class="lede">Même principe que pour Amazon : QontoUpdate va chercher la facture de chaque prélèvement Bouygues et Free d'adn dev et la joint à la transaction Qonto, avant de faire le zip du mois. Au passage, il vérifie les factures déjà jointes, parce que deux erreurs sont passées inaperçues cette année.</p>
+  <p class="meta">Spec 002 · 10 novembre 2026 · référence versionnée : <code>specs/002-justificatifs-bouygues-free/spec.md</code></p>
+
+  <h2>Le constat</h2>
+  <p>Sur 12 mois, seule adn dev est prélevée par ces deux opérateurs : 13 prélèvements Bouygues et 13 prélèvements Free. Aujourd'hui, tu télécharges chaque PDF et tu le joins à la main, entre 2 jours et 5 semaines après le prélèvement.</p>
+  <div class="verdict" role="list">
+    <div role="listitem"><b>24</b><span>factures jointes à la main en 12 mois</span></div>
+    <div role="listitem"><b>2</b><span>erreurs non repérées : une mauvaise facture en mai, un doublon en avril</span></div>
+    <div role="listitem"><b>0</b><span>PDF ou lien direct dans les mails « votre facture est disponible »</span></div>
+  </div>
+  <p style="margin-top:14px">Les mails renvoient seulement vers la page de connexion de l'espace client. Il faut donc passer par les deux sites, comme pour Amazon. Je les ai explorés aujourd'hui avec ta session ouverte : on peut retrouver chaque facture de façon fiable.</p>
+
+  <div class="flow">
+    <div>
+      <h3>Free</h3>
+      <ol>
+        <li>La page d'accueil de l'espace abonné liste toutes les factures depuis 2019.</li>
+        <li>On retient celle dont le numéro est dans la référence Qonto.</li>
+        <li>Le PDF se télécharge directement, sous le nom que tu utilises déjà.</li>
+      </ol>
+      <p class="key">Clé exacte : <code>Free HautDebit <b>1510870586</b></code> ↔ <code>Facture_Free_202611_…_<b>1510870586</b>.pdf</code></p>
+    </div>
+    <div>
+      <h3>Bouygues Telecom</h3>
+      <ol>
+        <li>La page « Mes factures » reçoit les 10 dernières factures : montant, date, lien du PDF.</li>
+        <li>On retient la facture la plus récente émise avant le débit, de même montant et pas déjà jointe.</li>
+        <li>Le PDF confirme : « Montant prélevé le 9 novembre 2026 : 17,99 ».</li>
+      </ol>
+      <p class="key">Pas de clé exacte : la référence Qonto est le numéro de ligne masqué <code>06xxxxx055</code>. On associe par le montant et la date.</p>
+    </div>
+  </div>
+
+  <h2>Ce qu'on propose</h2>
+  <ul>
+    <li><b>Une étape « Justificatifs opérateurs »</b> juste après l'étape Amazon, pour chaque société.</li>
+    <li><b>Facture trouvée et montant identique</b> : elle est jointe sans rien demander.</li>
+    <li><b>Sinon</b> (montant différent, facture pas encore émise, forme inconnue) : la carte de décision de la spec 001, avec le nom de l'opérateur et un lien vers ses factures.</li>
+    <li><b>Factures déjà jointes</b> du mois : l'application vérifie que c'est la bonne et signale en orange si ce n'est pas le cas. Elle ne modifie rien sur Qonto.</li>
+    <li><b>Connexion</b> : Chrome, avec un profil réservé à l'application. Le navigateur ne s'ouvre que s'il y a une facture à chercher.</li>
+  </ul>
+
+  <h2>À essayer : le contrôle sur tes 12 derniers mois</h2>
+  <p>Les données sont les vraies transactions d'adn dev et les vrais justificatifs joints. Essaie <b>mai 2026</b> (mauvaise facture), <b>avril 2026</b> (doublon) et <b>octobre 2026</b> (tout est bon). Pour voir les factures jointes automatiquement, coche la première variante : on fait comme si on était le 9 décembre et novembre devient générable.</p>
+
+  <div class="variants" role="group" aria-label="Variantes de la démonstration">
+    <label><input type="checkbox" id="vDec"><span>On est le 9 décembre 2026 <small>Novembre devient générable. Ses deux prélèvements n'ont pas encore de justificatif.</small></span></label>
+    <label><input type="checkbox" id="vLogin" disabled><span>La session Free a expiré <small>La fenêtre de connexion s'ouvre et l'application attend. (Seulement pour novembre.)</small></span></label>
+    <label><input type="checkbox" id="vAmount" disabled><span>Cas fictif : la facture Bouygues fait 23,49 € pour 17,99 € débités <small>Par exemple un hors-forfait. On aboutit à une décision. (Seulement pour novembre.)</small></span></label>
+  </div>
+
+  <div class="stage">
+    <div class="app">
+      <div class="app-head"><b>QONTO</b><small>Transaction Manager</small></div>
+
+      <div class="c">
+        <div class="ct">Contrôles</div>
+        <label class="month"><span>Mois à générer</span><select id="month"></select></label>
+        <p class="month-msg" id="monthMsg" role="alert"></p>
+        <div class="row">
+          <button class="b-start" id="start">Démarrer</button>
+          <button class="b-stop" id="stop" disabled>Arrêter</button>
+        </div>
+      </div>
+
+      <div class="c">
+        <div class="pills">
+          <div class="pill"><span class="dot" id="p-dev"></span>ADN-Dev</div>
+          <div class="pill"><span class="dot" id="p-group"></span>ADN-Group</div>
+          <div class="pill"><span class="dot" id="p-solio"></span>Solio</div>
+        </div>
+        <div class="src-lines" id="srcLines" aria-live="polite"><div>En attente du démarrage</div></div>
+        <div class="login" id="login" hidden role="status">
+          Free : connecte-toi à ton espace abonné dans la fenêtre Chrome ouverte, l'application attend.
+          <div><button id="loginDone">Simuler : je me suis connecté</button></div>
+        </div>
+      </div>
+
+      <section class="c decision" id="decision" hidden aria-labelledby="dTitle">
+        <div class="ct" id="dTitle">Décision justificatifs · ADN-Dev · novembre 2026</div>
+        <p class="d-intro" id="dIntro"></p>
+        <div id="txList"></div>
+        <div class="d-foot">
+          <button class="b-ok" id="validate" aria-disabled="true">Valider et continuer</button>
+          <span class="refuse" id="refuse" role="alert"></span>
+        </div>
+      </section>
+
+      <section class="c issues" id="issues" hidden>
+        <div class="ct">Problèmes détectés</div>
+        <div id="issuesBody"></div>
+      </section>
+
+      <div class="c">
+        <div class="ct">Logs</div>
+        <div class="logs" id="logs" aria-live="off"></div>
+      </div>
+    </div>
+  </div>
+  <p class="stage-note">La maquette reprend l'apparence actuelle de QontoUpdate. Ce qui change : une ligne par source sous les pastilles, et la carte « Décision Amazon » qui devient « Décision justificatifs », avec l'opérateur en tête de chaque transaction. L'étape Amazon n'est pas simulée ici.</p>
+
+  <h2>Ce qu'on ne fait pas</h2>
+  <ul>
+    <li><b>Pas de reverse-api-engineer.</b> Il génère un client à partir du trafic capturé, mais ne gère ni la connexion ni la session. En plus, son enregistrement garde les cookies et les factures sur le disque. L'exploration d'aujourd'hui a donné le même résultat sans outil supplémentaire.</li>
+    <li>Pas de Free Mobile : aucun prélèvement sur les comptes Qonto des trois sociétés.</li>
+    <li>Aucune suppression ni aucun remplacement d'un justificatif déjà joint. Mai et avril 2026 restent à corriger à la main ; le contrôle te dit exactement quoi faire.</li>
+    <li>Pas de lecture des mails « facture disponible » : ils ne contiennent rien d'utile.</li>
+  </ul>
+
+  <h2>Les risques</h2>
+  <table>
+    <tr><th>Risque</th><th>Parade</th></tr>
+    <tr><td>Free ou Bouygues refait son espace client</td><td>L'application passe en rouge avec la cause. Elle ne joint jamais un PDF au hasard.</td></tr>
+    <tr><td>Sessions courtes : la durée n'est pas connue</td><td>Si besoin, une connexion par mois. Seulement quand une facture est à chercher.</td></tr>
+    <tr><td>Bouygues ne rend que les 10 dernières factures</td><td>Un mois plus ancien aboutit à la décision « Aucune facture ».</td></tr>
+    <tr><td>Deux factures Bouygues du même montant à un mois d'écart</td><td>On prend la plus récente avant le débit et pas déjà jointe, et la ligne « Montant prélevé le … » du PDF confirme.</td></tr>
+    <tr><td>Le code Amazon est réorganisé (B1)</td><td>Les tests de la spec 001 doivent passer sans aucune modification.</td></tr>
+  </table>
+
+  <h2>Les arbitrages</h2>
+  <p>Les choix proposés sont cochés. Change ce que tu veux, puis colle-moi le récapitulatif en bas.</p>
+
+  <div class="arb" data-id="B1">
+    <h3>B1 — Code commun avec Amazon</h3>
+    <p>Le repérage, la carte de décision et le récapitulatif sont les mêmes pour les trois sources.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="B1" value="Socle commun, Amazon découpé maintenant" checked><span>Socle commun, Amazon découpé maintenant <small>Proposé. Un module par source, une seule carte. Ajouter un opérateur ensuite coûte peu.</small></span></label>
+      <label class="opt"><input type="radio" name="B1" value="Module à côté, Amazon intact"><span>Module à côté, Amazon intact <small>Aucun risque pour Amazon, mais le code de décision existe en deux exemplaires.</small></span></label>
+    </div>
+    <textarea class="free" placeholder="Précision (facultatif)"></textarea>
+  </div>
+
+  <div class="arb" data-id="B2">
+    <h3>B2 — Profil Chrome</h3>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="B2" value="Un profil commun aux trois sites" checked><span>Un profil commun aux trois sites <small>Proposé. Une seule fenêtre ; <code>amazon-profile/</code> est renommé, la session Amazon est conservée.</small></span></label>
+      <label class="opt"><input type="radio" name="B2" value="Un profil par site"><span>Un profil par site <small>Sessions cloisonnées, mais une fenêtre Chrome différente par site.</small></span></label>
+    </div>
+    <textarea class="free" placeholder="Précision (facultatif)"></textarea>
+  </div>
+
+  <div class="arb" data-id="B3">
+    <h3>B3 — Factures déjà jointes</h3>
+    <p>C'est ce contrôle qui trouve mai et avril 2026 dans la démo.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="B3" value="Les contrôler et signaler" checked><span>Les contrôler et signaler <small>Proposé. Orange avec la cause, rien n'est modifié sur Qonto.</small></span></label>
+      <label class="opt"><input type="radio" name="B3" value="Ne pas les regarder"><span>Ne pas les regarder <small>Comme pour Amazon : une transaction justifiée n'est jamais touchée.</small></span></label>
+    </div>
+    <textarea class="free" placeholder="Précision (facultatif)"></textarea>
+  </div>
+
+  <div class="arb" data-id="B4">
+    <h3>B4 — Facture Free d'un montant différent</h3>
+    <p>Le numéro de facture identifie la facture avec certitude. Un écart viendrait de frais ou d'un changement d'offre, jamais d'une erreur d'association.</p>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="B4" value="Demander" checked><span>Demander <small>Proposé. Même règle partout : un montant différent, une question.</small></span></label>
+      <label class="opt"><input type="radio" name="B4" value="Joindre quand même et signaler"><span>Joindre quand même et signaler en orange <small>Le numéro suffit ; l'écart reste visible dans le récapitulatif.</small></span></label>
+    </div>
+    <textarea class="free" placeholder="Précision (facultatif)"></textarea>
+  </div>
+
+  <h2>Récapitulatif à me coller</h2>
+  <textarea class="recap" id="recap" readonly aria-label="Récapitulatif des arbitrages"></textarea>
+  <div><button class="b-copy" id="copy">Copier le récapitulatif</button><span class="copied" id="copied" aria-live="polite"></span></div>
+</main>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wait = (ms) => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+  const $ = (id) => document.getElementById(id);
+  const FREE_URL = 'https://subscribe.free.fr/login/';
+  const BT_URL = 'https://www.bouyguestelecom.fr/mon-compte/mes-factures';
+
+  // Vraies données adn dev : prélèvement, montant, justificatif joint, facture attendue.
+  const fr = (no, mois) => `Facture_Free_${mois}_24442322_${no}.pdf`;
+  const bt = (d) => `Bouyguestelecom_Facture_${d}.pdf`;
+  const DATA = {
+    '2025_11': { free: ['06/11/2025', '29,99 €', [fr(1419714566, '202511')], fr(1419714566, '202511')], bt: ['10/11/2025', '17,99 €', [bt('20251027')], bt('20251027')] },
+    '2025_12': { free: ['05/12/2025', '29,99 €', [fr(1427300238, '202512').replace('.pdf', '-2.pdf')], fr(1427300238, '202512')], bt: ['08/12/2025', '17,99 €', [bt('20251127')], bt('20251127')] },
+    '2026_01': { free: ['07/01/2026', '29,99 €', [fr(1434774878, '202601')], fr(1434774878, '202601')], bt: ['08/01/2026', '17,99 €', [bt('20251227')], bt('20251227')] },
+    '2026_02': { free: ['05/02/2026', '29,99 €', [fr(1442505236, '202602')], fr(1442505236, '202602')], bt: ['09/02/2026', '18,10 €', [bt('20260127')], bt('20260127')] },
+    '2026_03': { free: ['05/03/2026', '29,99 €', ['Mars_2026.pdf'], fr(1450073852, '202603')], bt: ['09/03/2026', '17,99 €', [bt('20260227')], bt('20260227')] },
+    '2026_04': { free: ['08/04/2026', '29,99 €', ['Avril_2026.pdf'], fr(1457702330, '202604')], bt: ['09/04/2026', '18,07 €', [bt('20260327'), bt('20260327')], bt('20260327')] },
+    '2026_05': { free: ['06/05/2026', '29,99 €', [fr(1465290777, '202605')], fr(1465290777, '202605')], bt: ['07/05/2026', '17,99 €', [bt('20260527')], bt('20260427')] },
+    '2026_06': { free: ['05/06/2026', '29,99 €', [fr(1472847161, '202606')], fr(1472847161, '202606')], bt: ['09/06/2026', '19,47 €', [bt('20260527')], bt('20260527')] },
+    '2026_07': { free: ['06/07/2026', '29,99 €', [fr(1480451438, '202607')], fr(1480451438, '202607')], bt: ['09/07/2026', '17,99 €', [bt('20260627')], bt('20260627')] },
+    '2026_08': { free: ['05/08/2026', '29,99 €', [fr(1488050462, '202608')], fr(1488050462, '202608')], bt: ['07/08/2026', '18,74 €', [bt('20260727')], bt('20260727')] },
+    '2026_09': { free: ['04/09/2026', '29,99 €', [fr(1495635414, '202609')], fr(1495635414, '202609')], bt: ['09/09/2026', '17,99 €', [bt('20260827')], bt('20260827')] },
+    '2026_10': { free: ['06/10/2026', '29,99 €', [fr(1503236843, '202610')], fr(1503236843, '202610')], bt: ['09/10/2026', '17,99 €', [bt('20260927')], bt('20260927')] },
+    '2026_11': { free: ['05/11/2026', '29,99 €', [], fr(1510870586, '202611')], bt: ['09/11/2026', '17,99 €', [], bt('20261027')] }
+  };
+  const ORIGINAL = /^(Bouyguestelecom_Facture_\d{8}|Facture_Free_\d{6}_\d+_\d+)(-\d+)?\.pdf$/;
+  const norm = (f) => f.replace(/-\d+\.pdf$/, '.pdf');
+
+  // Contrôle F4 d'un justificatif déjà joint : { ok, text }.
+  function control(name, [date, amount, files, expected]) {
+    if (files.length > 1 && new Set(files).size === 1) return { ok: false, text: `${name} ${amount} du ${date} : <b>${files[0]}</b> est joint deux fois. Supprime le doublon sur Qonto.` };
+    const f = files[0];
+    if (!ORIGINAL.test(f)) return { ok: true, unchecked: true, text: `${name} : <code>${f}</code> renommé, non vérifiable` };
+    if (norm(f) !== expected) return { ok: false, text: `${name} ${amount} du ${date} : <b>${f}</b> est joint, la facture attendue est <b>${expected}</b>. Remplace-la sur Qonto (<a href="${name === 'Free' ? FREE_URL : BT_URL}" target="_blank" rel="noopener">voir mes factures</a>).` };
+    return { ok: true, text: `${name} : déjà justifié, conforme` };
+  }
+
+  const MONTHS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const sel = $('month');
+  let now;
+  function fillMonths() {
+    const keep = sel.value;
+    now = $('vDec').checked ? new Date(2026, 11, 9) : new Date(2026, 10, 10);
+    sel.innerHTML = '';
+    for (let i = 0; i < 13; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const o = document.createElement('option');
+      o.value = d.getFullYear() + '_' + String(d.getMonth() + 1).padStart(2, '0');
+      o.textContent = MONTHS[d.getMonth()] + ' ' + d.getFullYear() + (i === 0 ? ' (en cours)' : '');
+      sel.append(o);
+    }
+    sel.value = [...sel.options].some(o => o.value === keep && o.index > 0) ? keep : sel.options[1].value;
+    checkMonth();
+  }
+  const monthLabel = () => sel.selectedOptions[0].textContent.replace(' (en cours)', '');
+  const isCurrent = () => sel.selectedIndex === 0;
+  function checkMonth() {
+    $('start').setAttribute('aria-disabled', String(isCurrent()));
+    $('monthMsg').textContent = isCurrent() ? `Impossible de générer ${monthLabel()} : le relevé Qonto du mois n'est publié qu'au début du mois suivant.` : '';
+    const nov = sel.value === '2026_11';
+    ['vLogin', 'vAmount'].forEach(id => { $(id).disabled = !nov; if (!nov) $(id).checked = false; });
+  }
+  sel.addEventListener('change', checkMonth);
+  $('vDec').addEventListener('change', fillMonths);
+
+  function log(line) { const l = $('logs'); l.textContent += line + '\n'; l.scrollTop = l.scrollHeight; }
+  const lines = (arr) => { $('srcLines').innerHTML = arr.map(x => `<div>${x}</div>`).join(''); };
+
+  let pending = [], answers = {}, results = {};
+
+  function renderTx() {
+    $('dIntro').textContent = `${results.joined.length} facture${results.joined.length > 1 ? 's' : ''} jointe${results.joined.length > 1 ? 's' : ''} automatiquement. ${pending.length === 1 ? 'Cette transaction a' : 'Ces transactions ont'} besoin de toi.`;
+    $('txList').innerHTML = pending.map(t => `
+      <div class="tx" id="${t.id}">
+        <div class="tx-top"><span class="amt"><span class="tag">${t.src}</span>${t.amount}</span><span class="date">débité le ${t.date}</span></div>
+        <div class="order">${t.ref}</div>
+        <div class="cause ${t.kind}">${t.cause}</div>
+        <div class="links"><a href="${t.url}" target="_blank" rel="noopener">Voir mes factures ${t.src}</a></div>
+        <div class="choices" role="group" aria-label="Choix pour ${t.src} ${t.amount} du ${t.date}">
+          ${t.choices.map(c => `<button class="ch" data-tx="${t.id}" data-v="${c}" aria-pressed="false">${c}</button>`).join('')}
+        </div>
+        <div class="retry-msg" id="${t.id}-msg"></div>
+      </div>`).join('');
+  }
+  function refreshValidate() {
+    const missing = pending.filter(t => !answers[t.id]);
+    $('validate').setAttribute('aria-disabled', missing.length ? 'true' : 'false');
+    if (!missing.length) $('refuse').textContent = '';
+  }
+
+  $('txList').addEventListener('click', async (e) => {
+    const b = e.target.closest('.ch'); if (!b) return;
+    const id = b.dataset.tx, v = b.dataset.v, box = $(id);
+    box.classList.remove('missing');
+    if (v === 'Réessayer') {
+      box.querySelectorAll('.ch').forEach(x => { x.disabled = true; x.setAttribute('aria-pressed', 'false'); });
+      delete answers[id]; refreshValidate();
+      $(id + '-msg').textContent = 'Nouvelle recherche…';
+      await wait(800);
+      box.querySelectorAll('.ch').forEach(x => x.disabled = false);
+      $(id + '-msg').textContent = 'Toujours rien. Réessaie plus tard ou laisse sans justificatif.';
+      return;
+    }
+    answers[id] = v;
+    box.querySelectorAll('.ch').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    $(id + '-msg').textContent = '';
+    refreshValidate();
+  });
+
+  $('validate').addEventListener('click', async () => {
+    const missing = pending.filter(t => !answers[t.id]);
+    if (missing.length) {
+      missing.forEach(t => $(t.id).classList.add('missing'));
+      $('refuse').textContent = `Il manque ton choix pour ${missing[0].src} ${missing[0].amount} du ${missing[0].date}.`;
+      return;
+    }
+    $('decision').hidden = true;
+    pending.forEach(t => {
+      if (answers[t.id] === 'Joindre la facture trouvée') { log(`Qonto : facture ${t.src} jointe malgré l'écart (${t.amount})`); results.issues.push(`${t.src} ${t.amount} du ${t.date} : facture jointe malgré un montant différent`); results.lines[t.src] = `${t.src} : <b>1 jointe</b> <span class="w">· montant différent</span>`; }
+      else { log(`Qonto : ${t.src} ${t.amount} du ${t.date} laissée sans justificatif`); results.issues.push(`${t.src} ${t.amount} du ${t.date} : laissée sans justificatif`); results.lines[t.src] = `${t.src} : <b>sans justificatif</b>`; }
+    });
+    await finish();
+  });
+
+  async function finish() {
+    lines(Object.values(results.lines));
+    $('p-dev').className = 'dot ' + (results.issues.length ? 'warn' : 'ok');
+    for (const p of ['p-group', 'p-solio']) {
+      $(p).className = 'dot run'; log(`>>>>>>>>>>>> START PROCESS for ${p === 'p-group' ? 'adn-group' : 'solio'}`);
+      await wait(450); log('Opérateurs : aucune transaction Bouygues ou Free'); $(p).className = 'dot ok';
+    }
+    if (results.issues.length) {
+      $('issuesBody').innerHTML = `<p class="info">ADN-Dev</p><ul>${results.issues.map(i => `<li>${i}</li>`).join('')}</ul>`;
+      $('issues').hidden = false;
+    }
+    log('✓ Script terminé');
+    $('start').disabled = false; $('stop').disabled = true; sel.disabled = false; $('start').textContent = 'Recommencer';
+  }
+
+  function waitLogin() {
+    return new Promise(resolve => {
+      $('login').hidden = false; $('loginDone').focus();
+      $('loginDone').onclick = () => { $('login').hidden = true; log('Free : connexion détectée, reprise'); resolve(); };
+    });
+  }
+
+  $('start').addEventListener('click', async () => {
+    if (isCurrent()) { checkMonth(); sel.focus(); return; }
+    const m = DATA[sel.value];
+    pending = []; answers = {}; results = { joined: [], issues: [], lines: {} };
+    sel.disabled = true; $('start').disabled = true; $('stop').disabled = false;
+    $('logs').textContent = ''; $('issues').hidden = true; $('decision').hidden = true; $('refuse').textContent = '';
+    ['p-dev', 'p-group', 'p-solio'].forEach(p => $(p).className = 'dot');
+    $('p-dev').className = 'dot run';
+    log(`▶ Génération de ${monthLabel()} (--month ${sel.value})`);
+    log('>>>>>>>>>>>> START PROCESS for adn-dev');
+    lines(['Opérateurs · ADN-Dev : recherche des prélèvements Bouygues et Free…']);
+    await wait(600);
+
+    const missingFree = !m.free[2].length, missingBt = !m.bt[2].length;
+    if (!missingFree && !missingBt) {
+      log('Opérateurs : 2 prélèvements déjà justifiés, aucun navigateur ouvert');
+      for (const [name, tx] of [['Bouygues', m.bt], ['Free', m.free]]) {
+        const c = control(name, tx);
+        results.lines[name] = c.ok ? `${name} : <span class="${c.unchecked ? '' : 'ok-txt'}">${c.unchecked ? 'déjà justifié, nom renommé : non vérifiable' : 'déjà justifié, conforme'}</span>` : `${name} : <span class="warn-txt">justificatif à corriger</span>`;
+        log(`Contrôle ${name} : ${c.ok ? (c.unchecked ? 'non vérifiable (fichier renommé)' : 'conforme') : 'à corriger'}`);
+        if (!c.ok) results.issues.push(c.text);
+      }
+      return finish();
+    }
+
+    // Novembre, simulé au 9 décembre : rien n'est joint.
+    log('Opérateurs : 2 prélèvements de novembre sans justificatif');
+    if ($('vLogin').checked) {
+      lines(['Free : connexion nécessaire']);
+      log('Free : session expirée, fenêtre de connexion ouverte');
+      await waitLogin();
+    }
+    lines(['Free : lecture de la liste des factures…']);
+    await wait(500);
+    log('Free : facture n° 1510870586 trouvée, 29,99 € = 29,99 € débités');
+    log('Qonto : Facture_Free_202611_24442322_1510870586.pdf jointe');
+    results.joined.push('Free'); results.lines.Free = 'Free : <b>1 jointe</b> · n° 1510870586';
+    lines([results.lines.Free, 'Bouygues : lecture des factures…']);
+    await wait(500);
+    if ($('vAmount').checked) {
+      log('Bouygues : facture du 27/10/2026 de 23,49 € pour 17,99 € débités');
+      pending.push({ id: 'bt', src: 'Bouygues', amount: '17,99 €', date: '09/11/2026', ref: 'Référence Qonto 06xxxxx055 · facture du 27/10/2026', kind: 'p',
+        cause: 'Montant différent : facture de 23,49 € pour 17,99 € débités. Peut-être un hors-forfait payé à part.', url: BT_URL,
+        choices: ['Joindre la facture trouvée', 'Laisser sans justificatif'] });
+      lines([results.lines.Free, 'Bouygues : <b>1 décision en attente</b>']);
+      log('En attente de ta décision pour 1 transaction');
+      renderTx(); refreshValidate();
+      const d = $('decision'); d.hidden = false; d.classList.remove('enter'); void d.offsetWidth; d.classList.add('enter');
+      return;
+    }
+    log('Bouygues : facture du 27/10/2026, 17,99 €, « Montant prélevé le 9 novembre 2026 » : confirmé');
+    log('Qonto : Bouyguestelecom_Facture_20261027.pdf jointe');
+    results.joined.push('Bouygues'); results.lines.Bouygues = 'Bouygues : <b>1 jointe</b> · facture du 27/10';
+    await finish();
+  });
+
+  $('stop').addEventListener('click', () => {
+    $('decision').hidden = true; $('login').hidden = true; $('p-dev').className = 'dot err';
+    log('✗ Arrêt demandé par l\'utilisateur');
+    $('start').disabled = false; $('stop').disabled = true; sel.disabled = false;
+  });
+
+  fillMonths();
+
+  /* --- Arbitrages --- */
+  function recap() {
+    const out = ['Spec 002 — arbitrages'];
+    document.querySelectorAll('.arb').forEach(a => {
+      const v = a.querySelector('input:checked').value, f = a.querySelector('.free').value.trim();
+      out.push(`${a.dataset.id} : ${v}${f ? ' — ' + f : ''}`);
+    });
+    $('recap').value = out.join('\n');
+  }
+  document.querySelectorAll('.arb input, .arb textarea').forEach(el => el.addEventListener('input', recap));
+  recap();
+  $('copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('recap').value); $('copied').textContent = 'Copié.'; }
+    catch { $('recap').select(); $('copied').textContent = 'Sélectionné : ⌘C pour copier.'; }
+  });
+})();
+</script>
+</body>
+</html>

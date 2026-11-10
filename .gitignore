@@ -10,4 +10,6 @@ __pycache__/
 .DS_Store
 QontoUpdate.app/**
 amazon-profile/
+browser-profile/
 .pytest_cache/
+.playwright-mcp/

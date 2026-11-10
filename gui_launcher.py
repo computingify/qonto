@@ -19,6 +19,17 @@ import decision
 app = Flask(__name__, template_folder='templates')
 
 
+def _describe(items):
+    """« 3 transaction(s) Amazon » ou « 3 transaction(s) (2 Amazon, 1 Bouygues) »."""
+    counts = {}
+    for item in items:
+        source = item.get("source", "Amazon")
+        counts[source] = counts.get(source, 0) + 1
+    if len(counts) <= 1:
+        return f"{len(items)} transaction(s) {next(iter(counts), 'Amazon')}"
+    return f"{len(items)} transaction(s) (" + ", ".join(f"{n} {s}" for s, n in counts.items()) + ")"
+
+
 class ScriptManager:
     """Gère le cycle de vie d'un processus Python avec communication interactive"""
     
@@ -31,10 +42,11 @@ class ScriptManager:
         self.statuses = {}
         self.statuses_lock = threading.Lock()
         self.month = None
-        # Décision Amazon en attente de réponse (spec 001) et ligne « Amazon »
-        # de chaque société.
+        # Décision en attente de réponse (spec 001/002), ligne « Amazon » de
+        # chaque société, et ligne de chaque source : {société: {source: texte}}.
         self.decision = None
         self.amazon = {}
+        self.sources = {}
         self.stdin_lock = threading.Lock()
     
     def start(self, auto_mode=False, month=None):
@@ -46,6 +58,7 @@ class ScriptManager:
             self.statuses = {}
             self.decision = None
             self.amazon = {}
+            self.sources = {}
         self.logs.put("▶ Script démarré...")
         thread = threading.Thread(target=self._run, daemon=True)
         thread.start()
@@ -100,7 +113,7 @@ class ScriptManager:
             self.running = False
 
     def _consume(self, line):
-        """Aiguille une ligne : statut, décision, ligne Amazon ou log classique.
+        """Aiguille une ligne : statut, décision, ligne d'une source (Amazon, Free, Bouygues) ou log classique.
         Renvoie True pour une ligne structurée (le mode auto n'y répond pas)."""
         for prefix, attr in ((decision.DECISION_PREFIX, "decision"), (decision.AMAZON_PREFIX, "amazon")):
             if line.startswith(prefix):
@@ -112,9 +125,12 @@ class ScriptManager:
                 with self.statuses_lock:
                     if attr == "decision":
                         self.decision = payload
-                        self.logs.put(f"⏸ En attente de ta décision pour {len(payload.get('items', []))} transaction(s) Amazon")
+                        self.logs.put(f"⏸ En attente de ta décision pour {_describe(payload.get('items', []))}")
                     else:
-                        self.amazon[payload.get("society", "")] = payload.get("text", "")
+                        society, source = payload.get("society", ""), payload.get("source", "Amazon")
+                        self.sources.setdefault(society, {})[source] = payload.get("text", "")
+                        if source == "Amazon":
+                            self.amazon[society] = payload.get("text", "")
                 return True
         if line.startswith(status.STATUS_PREFIX):
             try:
@@ -147,6 +163,10 @@ class ScriptManager:
     def get_decision(self):
         with self.statuses_lock:
             return self.decision
+
+    def get_sources(self):
+        with self.statuses_lock:
+            return {society: dict(lines) for society, lines in self.sources.items()}
 
     def get_amazon(self):
         with self.statuses_lock:
@@ -296,6 +316,7 @@ def api_logs():
         'statuses': manager.get_statuses(),
         'decision': manager.get_decision(),
         'amazon': manager.get_amazon(),
+        'sources': manager.get_sources(),
     })
 
 
